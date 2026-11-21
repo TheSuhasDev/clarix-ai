@@ -8,12 +8,23 @@ import time
 
 from .airgap import guard, monitor
 from .classification import norm_class
-from .errors import ApiError, bad_request, forbidden, not_found, unavailable
+from .errors import ApiError, bad_request, forbidden, not_found, payload_too_large, unavailable
 from .llm.ollama import OllamaError, OllamaUnavailable
 from .security import injection
 from .security.taint import TaintContext
 from .tools.registry import LEVELS, TOOLS
 from .util import clock, utcstamp
+from .voice import (
+    AudioDurationExceededError,
+    AudioSizeExceededError,
+    InvalidAudioError,
+    ModelNotFoundError,
+    TextLengthExceededError,
+    VoiceDisabledError,
+    VoiceError,
+    VoiceNotFoundError,
+    VoiceOutputDisabledError,
+)
 
 _HOST = re.compile(r"^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$|^(\d{1,3}\.){3}\d{1,3}$", re.I)
 
@@ -52,6 +63,9 @@ def public_health(ctx, req):
     p = monitor.posture(guard.status())
     res = {"status": "ok", "version": __import__("clarix").__version__, "authRequired": ctx.settings.auth_enabled,
            "airgapGuard": guard.status(), "posture": p["status"], "uptimeS": int(time.time() - ctx.started)}
+    if hasattr(ctx, "voice"):
+        res["voice"] = ctx.voice.get_status()
+        res["tts"] = ctx.voice.get_tts_status()
     if p["status"] == "NOT_ISOLATED":
         res["warning"] = "Host network posture is NOT_ISOLATED. OS-level firewall rules (deploy/nftables-airgap.conf) are recommended."
     if getattr(ctx.settings, "demo_mode", False):
@@ -354,7 +368,74 @@ def audit_head(ctx, req):
 
 
 def health_view(ctx, req):
-    return ctx.telemetry.health()
+    h = ctx.telemetry.health()
+    if hasattr(ctx, "voice"):
+        h["voice"] = ctx.voice.get_status()
+        h["tts"] = ctx.voice.get_tts_status()
+    return h
+
+
+# --------------------------------------------------------------------------- voice
+def voice_transcribe(ctx, req):
+    ctx.integrity.ensure_not_locked()
+    audio_data = b""
+    language = None
+    if req.files:
+        for k in ("file", "audio", "blob"):
+            if k in req.files:
+                _, audio_data = req.files[k]
+                break
+        if not audio_data and req.files:
+            _, audio_data = next(iter(req.files.values()))
+        language = req.form.get("language")
+    else:
+        audio_data = req.body
+        language = req.query.get("language")
+
+    if not audio_data:
+        raise bad_request("No audio data received. Send multipart/form-data with 'file' or raw audio body.")
+
+    try:
+        return ctx.voice.transcribe(audio_data, user=req.operator, language=language)
+    except VoiceDisabledError as e:
+        raise forbidden(str(e))
+    except ModelNotFoundError as e:
+        raise unavailable(str(e), code="model_not_found", extra=e.to_dict())
+    except AudioSizeExceededError as e:
+        raise payload_too_large(str(e))
+    except (InvalidAudioError, AudioDurationExceededError) as e:
+        raise bad_request(str(e))
+    except VoiceError as e:
+        raise bad_request(str(e))
+
+
+def voice_speak(ctx, req):
+    ctx.integrity.ensure_not_locked()
+    b = req.json()
+    text = (b.get("text") or "").strip()
+    if not text:
+        raise bad_request("Field 'text' is required")
+    if len(text) > 2000:
+        raise bad_request("Field 'text' exceeds maximum limit of 2000 characters")
+    voice = b.get("voice") or None
+    try:
+        speed = float(b.get("speed", 1.0))
+    except (ValueError, TypeError):
+        speed = 1.0
+    if not (0.5 <= speed <= 2.0):
+        speed = 1.0
+
+    try:
+        wav_bytes = ctx.voice.speak(text, voice=voice, speed=speed, user=req.operator)
+        return 200, wav_bytes, {"Content-Type": "audio/wav", "Content-Length": str(len(wav_bytes))}
+    except VoiceOutputDisabledError as e:
+        raise forbidden(str(e))
+    except VoiceNotFoundError as e:
+        raise unavailable(str(e), code="voice_not_found", extra=e.to_dict())
+    except TextLengthExceededError as e:
+        raise bad_request(str(e))
+    except VoiceError as e:
+        raise bad_request(str(e))
 
 
 # --------------------------------------------------------------------------- integrity
@@ -388,4 +469,130 @@ def demo_tamper(ctx, req):
     b = req.json()
     attack = _str(b, "attack", 60)
     return ctx.integrity.demo_tamper(attack)
+
+
+# --------------------------------------------------------------------------- agentic capabilities
+def agent_runs_create(ctx, req):
+    ctx.integrity.ensure_not_locked()
+    b = req.json()
+    goal = _str(b, "goal", 4000)
+    role = b.get("role", "analyst")
+    plan_mode = b.get("planMode", b.get("plan_mode", "auto"))
+    budget = b.get("budget")
+    workflow_id = b.get("workflowId", b.get("workflow_id"))
+    run = ctx.agentic_runner.create_run(
+        goal=goal,
+        role=role,
+        plan_mode=plan_mode,
+        budget=budget,
+        workflow_id=workflow_id,
+        actor=req.operator,
+    )
+    return 201, run.to_dict()
+
+
+def agent_runs_list(ctx, req):
+    try:
+        limit = max(1, min(100, int(req.query.get("limit", "50"))))
+    except (ValueError, TypeError):
+        limit = 50
+    return ctx.agentic_runner.list_runs(limit=limit)
+
+
+def agent_runs_get(ctx, req):
+    run_id = req.path_params.get("id", "")
+    run = ctx.agentic_runner.get_run(run_id)
+    if not run:
+        raise not_found(f"Agent run '{run_id}' not found")
+    return run.to_dict()
+
+
+def agent_runs_stream(ctx, req):
+    run_id = req.path_params.get("id", "")
+    run = ctx.agentic_runner.get_run(run_id)
+    if not run:
+        raise not_found(f"Agent run '{run_id}' not found")
+    return run.to_dict()
+
+
+def agent_runs_approve_plan(ctx, req):
+    ctx.integrity.ensure_not_locked()
+    run_id = req.path_params.get("id", "")
+    b = req.json()
+    approved = bool(b.get("approved", True))
+    steps = b.get("steps")
+    run = ctx.agentic_runner.approve_plan(
+        run_id, approved=approved, steps=steps, actor=req.operator
+    )
+    return run.to_dict()
+
+
+def agent_runs_pause(ctx, req):
+    run_id = req.path_params.get("id", "")
+    run = ctx.agentic_runner.pause_run(run_id, actor=req.operator)
+    return run.to_dict()
+
+
+def agent_runs_resume(ctx, req):
+    run_id = req.path_params.get("id", "")
+    run = ctx.agentic_runner.resume_run(run_id, actor=req.operator)
+    return run.to_dict()
+
+
+def agent_runs_stop(ctx, req):
+    run_id = req.path_params.get("id", "")
+    run = ctx.agentic_runner.stop_run(run_id, actor=req.operator)
+    return run.to_dict()
+
+
+def agent_workflows_list(ctx, req):
+    return ctx.agentic_workflows.list_workflows()
+
+
+def agent_workflow_run(ctx, req):
+    ctx.integrity.ensure_not_locked()
+    wf_id = req.path_params.get("id", "")
+    wf = ctx.agentic_workflows.get_workflow(wf_id)
+    if not wf:
+        raise not_found(f"Workflow '{wf_id}' not found")
+    b = req.json() if req.body else {}
+    goal = b.get("goal") or wf["defaultGoal"]
+    role = b.get("role") or wf["defaultRole"]
+    plan_mode = b.get("planMode", b.get("plan_mode", "auto"))
+    budget = b.get("budget")
+    run = ctx.agentic_runner.create_run(
+        goal=goal,
+        role=role,
+        plan_mode=plan_mode,
+        budget=budget,
+        workflow_id=wf["id"],
+        actor=req.operator,
+    )
+    return 201, run.to_dict()
+
+
+def agent_memory_list(ctx, req):
+    session_id = req.query.get("sessionId")
+    return ctx.agentic_memory.list_items(session_id=session_id)
+
+
+def agent_memory_clear(ctx, req):
+    ctx.integrity.ensure_not_locked()
+    b = req.json() if req.body else {}
+    session_id = b.get("sessionId")
+    key = b.get("key")
+    count = ctx.agentic_memory.clear(session_id=session_id, key=key, actor=req.operator)
+    return {"cleared": True, "count": count}
+
+
+def agent_scheduler_status(ctx, req):
+    return ctx.agentic_workflows.scheduler.status()
+
+
+def agent_scheduler_toggle(ctx, req):
+    ctx.integrity.ensure_not_locked()
+    b = req.json()
+    enabled = bool(b.get("enabled", True))
+    return ctx.agentic_workflows.scheduler.toggle(enabled=enabled)
+
 

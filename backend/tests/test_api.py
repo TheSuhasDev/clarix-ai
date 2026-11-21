@@ -58,7 +58,7 @@ class DevMode(ApiBase):
         self.assertEqual(s, 200)
         for k in ("agent", "ollama", "threats", "blocked", "toolCalls", "pendingApprovals", "auditEvents", "outbound", "activePolicies", "totalPolicies", "events", "activity", "threatCats"):
             self.assertIn(k, b)
-        self.assertEqual((b["activePolicies"], b["totalPolicies"]), (5, 5))
+        self.assertEqual((b["activePolicies"], b["totalPolicies"]), (8, 8))
         self.assertEqual(b["ollama"]["status"], "ONLINE")
         self.assertTrue(all(set(e) == {"id", "time", "source", "message", "kind"} for e in b["events"]))
         self.assertEqual(len(b["activity"]), 6)
@@ -81,7 +81,7 @@ class DevMode(ApiBase):
 
     def test_policies_and_toggle_audited(self):
         s, p, _ = self.call("GET", "/api/policies")
-        self.assertEqual([x["id"] for x in p], [f"POL-00{i}" for i in range(1, 6)])
+        self.assertEqual([x["id"] for x in p], [f"POL-00{i}" for i in range(1, 9)])
         s, u, _ = self.call("PATCH", "/api/policies/POL-002", {"enabled": False})
         self.assertEqual((s, u["enabled"]), (200, False))
         self.assertEqual(self.call("PATCH", "/api/policies/POL-999", {"enabled": True})[0], 404)

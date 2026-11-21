@@ -64,6 +64,14 @@ class Settings:
     rag_min_score_neural: float = 0.30   # cosine; drops clearly irrelevant passages. Tune for your embedding model
     rag_min_score_lexical: float = 0.10  # for the word-overlap fallback embedder
     integrity_mode: str = "enforce"      # enforce | warn | off
+    whisper_model_dir: Path = Path("./models/whisper")
+    whisper_model: str = "base"
+    whisper_language: str | None = None
+    voice_enabled: bool = True
+    tts_voice_dir: Path = Path("./models/piper")
+    tts_voice: str = "en_US-lessac-low"
+    tts_engine: str = "piper"
+    tts_enabled: bool = True
 
     @property
     def workspace(self) -> Path:
@@ -126,6 +134,14 @@ class Settings:
             rag_min_score_neural=float(e.get("CLARIX_RAG_MIN_SCORE_NEURAL", "0.30")),
             rag_min_score_lexical=float(e.get("CLARIX_RAG_MIN_SCORE_LEXICAL", "0.10")),
             integrity_mode=e.get("CLARIX_INTEGRITY_MODE", "enforce").strip().lower(),
+            whisper_model_dir=Path(e.get("CLARIX_WHISPER_MODEL_DIR", "./models/whisper")),
+            whisper_model=e.get("CLARIX_WHISPER_MODEL", "base").strip().lower(),
+            whisper_language=e.get("CLARIX_WHISPER_LANGUAGE") or None,
+            voice_enabled=_bool(e.get("CLARIX_VOICE_ENABLED"), True),
+            tts_voice_dir=Path(e.get("CLARIX_TTS_VOICE_DIR", "./models/piper")),
+            tts_voice=e.get("CLARIX_TTS_VOICE", "en_US-lessac-low").strip(),
+            tts_engine=e.get("CLARIX_TTS_ENGINE", "piper").strip().lower(),
+            tts_enabled=_bool(e.get("CLARIX_TTS_ENABLED"), True),
         )
         s.validate(allow_non_loopback=_bool(e.get("CLARIX_ALLOW_NON_LOOPBACK"), False))
         return s

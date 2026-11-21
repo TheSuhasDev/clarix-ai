@@ -5,6 +5,9 @@ import logging
 import time
 
 from .agent import Agent
+from .agentic.memory import AgentMemoryStore
+from .agentic.runner import AgentRunner
+from .agentic.workflows import AgenticWorkflowManager
 from .airgap import guard
 from .approvals import Approvals, Grants
 from .audit import AuditLog
@@ -26,6 +29,7 @@ from .security.threats import ThreatStore
 from .telemetry import Telemetry
 from .tools.registry import ToolRegistry
 from .tools.runtime import ToolRuntime
+from .voice import VoiceManager
 
 log = logging.getLogger("clarix")
 
@@ -58,6 +62,10 @@ class Context:
         self.agent = Agent(self)
         self.rag_commands = RagCommands(self)
         self.telemetry = Telemetry(self)
+        self.voice = VoiceManager(self)
+        self.agentic_memory = AgentMemoryStore(self)
+        self.agentic_workflows = AgenticWorkflowManager(self)
+        self.agentic_runner = AgentRunner(self)
         self.started = time.time()
         guard.set_sink(self._on_blocked)
         if install_guard:
@@ -76,8 +84,14 @@ class Context:
     def start(self) -> None:
         self.telemetry.start()
         self.integrity.start()
+        if hasattr(self, "agentic_workflows") and hasattr(self.agentic_workflows, "scheduler"):
+            self.agentic_workflows.scheduler.start()
 
     def close(self) -> None:
+        if hasattr(self, "agentic_workflows") and hasattr(self.agentic_workflows, "scheduler"):
+            self.agentic_workflows.scheduler.stop()
+        if hasattr(self, "voice"):
+            self.voice.shutdown()
         self.telemetry.stop()
         self.integrity.stop()
         guard.set_sink(None)

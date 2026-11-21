@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, ChevronDown, FileText, Lock, Send, Settings2 } from 'lucide-react';
-import { Card, ClassPill, DecisionPill, Page, PageHeader, PostureStrip, RiskPill, TrustPill } from '../components/common';
-import { agentService, config, ollamaService } from '../services';
+import { Bot, ChevronDown, FileAudio, FileText, Lock, Mic, Send, Settings2, Sliders, Square, Volume2, VolumeX, X } from 'lucide-react';
+import { Card, ClassPill, DecisionPill, Page, PageHeader, PostureStrip, RiskPill, Spinner, TrustPill } from '../components/common';
+import { useTextToSpeech } from '../hooks/useTextToSpeech';
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
+import { agentService, config, ollamaService, voiceService } from '../services';
 import { useConsole } from '../state/ConsoleContext';
 import type { ChatMessage, SourceRef } from '../types';
 import { cx, uid } from '../utils/format';
@@ -90,6 +92,40 @@ export default function AgentPage() {
 
   const sid = useRef(sessionId());
   const first = useRef(true);
+  const audioFileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [showTtsSettings, setShowTtsSettings] = useState(false);
+
+  const tts = useTextToSpeech(toast);
+
+  const voice = useVoiceRecorder((transcribedText, meta) => {
+    setInput((prev) => (prev.trim() ? `${prev.trim()} ${transcribedText}` : transcribedText));
+    toast(`Transcribed ${meta.durationMs}ms [${meta.language.toUpperCase()}] via offline Whisper (${meta.model})`, 'green');
+    field.current?.focus();
+  });
+
+  async function handleAudioUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    voice.clearError();
+    setUploadingAudio(true);
+    toast('Transcribing uploaded audio file offline with Whisper…', 'blue');
+    try {
+      const res = await voiceService.transcribe(file);
+      if (res.text && res.text.trim()) {
+        setInput((prev) => (prev.trim() ? `${prev.trim()} ${res.text.trim()}` : res.text.trim()));
+        toast(`Transcribed ${res.durationMs}ms [${res.language.toUpperCase()}] via offline Whisper (${res.model})`, 'green');
+        field.current?.focus();
+      } else {
+        toast('No speech recognized in audio file.', 'amber');
+      }
+    } catch (err: any) {
+      toast(err?.message || 'Failed to transcribe audio file.', 'red');
+    } finally {
+      setUploadingAudio(false);
+      if (audioFileInputRef.current) audioFileInputRef.current.value = '';
+    }
+  }
   useEffect(() => {
     if (config.useMocks) return;
     // live mode: offer the models Ollama actually has (embedding models excluded)
@@ -107,6 +143,7 @@ export default function AgentPage() {
   async function send() {
     const text = input.trim();
     if (!text || busy) return;
+    tts.stop();
     setMsgs((m) => [...m, { id: uid('m'), role: 'user', text, time: new Date().toTimeString().slice(0, 8) }]);
     setInput(''); setBusy(true);
     try {
@@ -114,6 +151,11 @@ export default function AgentPage() {
       setMsgs((m) => [...m, reply]);
       if (reply.meta?.decision === 'BLOCK') toast('Request blocked by policy (demo heuristic).', 'red');
       if (reply.meta?.decision === 'REQUIRE_APPROVAL') toast('Sent to the Human Approval queue.', 'amber');
+      if (tts.enabled && reply.text) {
+        const isBlocked = reply.meta?.decision === 'BLOCK';
+        const isUnverified = reply.meta?.trust === 'UNTRUSTED';
+        void tts.speak(reply.text, reply.id, isUnverified, isBlocked);
+      }
       refreshCounts();
     } catch (e) {
       setMsgs((m) => [...m, { id: uid('m'), role: 'system', time: '', text: `Agent unavailable: ${e instanceof Error ? e.message : 'unknown error'}` }]);
@@ -148,6 +190,20 @@ export default function AgentPage() {
                       <TrustPill value={m.meta.trust} /><RiskPill risk={m.meta.risk} /><ClassPill value={m.meta.classification} />
                       <DecisionPill decision={m.meta.decision} />
                       <button type="button" className="chat__trace" aria-expanded={open === m.id} onClick={() => setOpen(open === m.id ? null : m.id)}>View Security Pipeline Trace <ChevronDown width={14} height={14} /></button>
+                      {m.role === 'agent' && (
+                        <button
+                          type="button"
+                          className={cx('chat__replay-btn', tts.activeId === m.id && 'is-speaking')}
+                          title={tts.activeId === m.id ? 'Stop speaking' : 'Read answer aloud offline'}
+                          aria-label={tts.activeId === m.id ? 'Stop speaking answer' : 'Read answer aloud offline'}
+                          onClick={() => {
+                            if (tts.activeId === m.id) tts.stop();
+                            else void tts.speak(m.text, m.id, m.meta?.trust === 'UNTRUSTED', m.meta?.decision === 'BLOCK');
+                          }}
+                        >
+                          {tts.activeId === m.id ? <Square width={12} height={12} fill="currentColor" /> : <Volume2 width={13} height={13} />}
+                        </button>
+                      )}
                     </div>
                     {open === m.id && (
                       <ol className="chat__tl">{m.meta.trace.map((t) => <li key={t.step} className={t.ok ? '' : 'bad'}><span>{t.step}</span><em>+{t.ms}ms</em><b>{t.ok ? 'PASSED' : 'FAILED'}</b></li>)}</ol>
@@ -175,11 +231,227 @@ export default function AgentPage() {
             ))}
           </ul>
         )}
-        <form className="chat__input" onSubmit={(e) => { e.preventDefault(); void send(); }}>
-          <input ref={field} className="cx-input" value={input} maxLength={2000} onChange={(e) => setInput(e.target.value)} placeholder="Message the secure agent, or type / for commands such as /rag ask …" aria-label="Message the secure agent" disabled={busy} />
-          <button type="submit" className="cx-btn chat__send" disabled={busy || !input.trim()}>SEND <Send /></button>
+        <input
+          ref={audioFileInputRef}
+          type="file"
+          accept="audio/*,.wav,.webm,.ogg,.m4a"
+          style={{ display: 'none' }}
+          onChange={handleAudioUpload}
+        />
+        <form className="chat__input" style={{ position: 'relative' }} onSubmit={(e) => { e.preventDefault(); void send(); }}>
+          <input ref={field} className="cx-input" value={input} maxLength={2000} onChange={(e) => setInput(e.target.value)} placeholder="Message the secure agent, or type / for commands such as /rag ask …" aria-label="Message the secure agent" disabled={busy || voice.recording || voice.transcribing || uploadingAudio} />
+
+          {/* Offline Voice Output Toggle (TTS) */}
+          <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <button
+              type="button"
+              className={cx('chat__speaker-btn', tts.enabled && 'is-active')}
+              onClick={tts.toggleEnabled}
+              disabled={!tts.isAvailable}
+              title={
+                !tts.isAvailable
+                  ? 'Voice output unavailable (no local voice models or OS voices found)'
+                  : tts.enabled
+                  ? 'Voice output ON (Ctrl+Shift+S) — click to mute'
+                  : 'Voice output OFF (Ctrl+Shift+S) — click to enable'
+              }
+              aria-label={tts.enabled ? 'Mute voice output (Ctrl+Shift+S)' : 'Enable voice output (Ctrl+Shift+S)'}
+            >
+              {tts.enabled ? <Volume2 width={18} height={18} /> : <VolumeX width={18} height={18} />}
+            </button>
+            {tts.isAvailable && (
+              <button
+                type="button"
+                className="chat__speaker-btn"
+                style={{ width: 22, height: 38, borderLeft: 'none', borderRadius: '0 8px 8px 0', marginLeft: -2, padding: 0 }}
+                title="Voice Output Settings (speed, volume, voice)"
+                aria-label="Voice Output Settings"
+                onClick={() => setShowTtsSettings((v) => !v)}
+              >
+                <Sliders width={12} height={12} />
+              </button>
+            )}
+          </div>
+
+          {/* TTS Settings Popover */}
+          {showTtsSettings && (
+            <div className="tts-popover" role="dialog" aria-label="Text-to-speech settings">
+              <div className="tts-popover-title">
+                <span>Offline Voice Settings</span>
+                <button type="button" className="cx-btn cx-btn--ghost cx-btn--sm" onClick={() => setShowTtsSettings(false)}>
+                  <X width={13} height={13} />
+                </button>
+              </div>
+              <div className="tts-control-row">
+                <div className="tts-control-label">
+                  <span>Speed:</span>
+                  <b>{tts.speed.toFixed(2)}x</b>
+                </div>
+                <input
+                  type="range"
+                  min="0.75"
+                  max="1.5"
+                  step="0.05"
+                  value={tts.speed}
+                  onChange={(e) => tts.setSpeed(parseFloat(e.target.value))}
+                />
+              </div>
+              <div className="tts-control-row">
+                <div className="tts-control-label">
+                  <span>Volume:</span>
+                  <b>{Math.round(tts.volume * 100)}%</b>
+                </div>
+                <input
+                  type="range"
+                  min="0.0"
+                  max="1.0"
+                  step="0.05"
+                  value={tts.volume}
+                  onChange={(e) => tts.setVolume(parseFloat(e.target.value))}
+                />
+              </div>
+              {(tts.backendVoices.length > 0 || tts.browserVoices.length > 0) && (
+                <div className="tts-control-row">
+                  <span className="tts-control-label">Voice:</span>
+                  <select className="cx-select" style={{ fontSize: '.72rem', padding: '.25rem .4rem' }} value={tts.voice} onChange={(e) => tts.setVoice(e.target.value)}>
+                    {tts.backendVoices.map((v) => (
+                      <option key={v} value={v}>Piper: {v}</option>
+                    ))}
+                    {tts.browserVoices.map((v) => (
+                      <option key={v.name} value={v.name}>OS Voice: {v.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Voice Input (Upload + Mic) */}
+          <button
+            type="button"
+            className="chat__mic"
+            onClick={() => audioFileInputRef.current?.click()}
+            disabled={busy || voice.recording || voice.transcribing || uploadingAudio}
+            title="Upload audio clip (.wav/.webm) to transcribe offline"
+            aria-label="Upload audio clip"
+          >
+            {uploadingAudio ? <Spinner label="Uploading" /> : <FileAudio width={18} height={18} />}
+          </button>
+          <button
+            type="button"
+            className={cx('chat__mic', voice.recording && 'is-recording')}
+            onClick={() => {
+              tts.stop();
+              voice.toggleRecording();
+            }}
+            disabled={busy || voice.transcribing || uploadingAudio}
+            title={voice.recording ? 'Stop recording (Ctrl+Shift+Space)' : 'Voice input (Whisper Flow) [Ctrl+Shift+Space]'}
+            aria-label={voice.recording ? 'Stop voice recording' : 'Start voice input (Whisper Flow)'}
+          >
+            {voice.transcribing ? (
+              <Spinner label="Transcribing" />
+            ) : voice.recording ? (
+              <Square width={16} height={16} fill="currentColor" />
+            ) : (
+              <Mic width={18} height={18} />
+            )}
+          </button>
+          <button type="submit" className="cx-btn chat__send" disabled={busy || !input.trim() || voice.recording || voice.transcribing || uploadingAudio}>SEND <Send /></button>
         </form>
-        <p className="cx-sub" style={{ margin: '.6rem 0 0', fontSize: '.68rem' }}><Lock width={12} height={12} style={{ verticalAlign: '-2px' }} /> {config.useMocks ? 'Verdicts here come from a browser-side demo heuristic. The real filters run in the backend.' : 'Every message and /rag command passes the backend injection scan, policy gates, taint tracking and audit log. Type / for commands.'}</p>
+
+        {/* Speaking indicator bar */}
+        {tts.speaking && (
+          <div className="voice-panel voice-panel--speaking" role="status" aria-live="polite">
+            <div className="voice-bar">
+              <div className="voice-indicator">
+                <Volume2 width={16} height={16} className="voice-speaking-icon" color="#2563ff" />
+                <span style={{ color: '#2563ff' }}>SPEAKING ANSWER OFFLINE ({tts.backendReady ? 'PIPER NEURAL TTS' : 'LOCAL OS SAPI'})</span>
+              </div>
+              <div className="voice-actions">
+                <button type="button" className="cx-btn cx-btn--primary cx-btn--sm" onClick={tts.stop}>
+                  <Square width={14} height={14} fill="currentColor" /> Stop
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {voice.recording && (
+          <div className="voice-panel" role="region" aria-label="Voice recording in progress">
+            <div className="voice-bar">
+              <div className="voice-indicator">
+                <span className="voice-dot" />
+                <span>RECORDING (AIR-GAP WHISPER)</span>
+              </div>
+              <div className="voice-waveform" aria-hidden="true">
+                {voice.waveform.map((norm, idx) => (
+                  <div key={idx} className="voice-wave-bar" style={{ height: `${Math.max(4, Math.round(norm * 28))}px` }} />
+                ))}
+              </div>
+              <span className="voice-timer">00:{voice.duration.toString().padStart(2, '0')} / 01:00</span>
+              <div className="voice-actions">
+                <button type="button" className="cx-btn cx-btn--primary cx-btn--sm" onClick={voice.stopRecording}>Stop & Transcribe</button>
+                <button type="button" className="cx-btn cx-btn--ghost cx-btn--sm" onClick={voice.cancelRecording}><X width={14} height={14} /> Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {voice.transcribing && (
+          <div className="voice-panel">
+            <div className="voice-bar">
+              <Spinner label="Transcribing" />
+              <span style={{ font: '600 .8rem var(--font-mono)', color: '#2563ff' }}>Transcribing offline audio via local Whisper STT…</span>
+            </div>
+          </div>
+        )}
+
+        {voice.error && (
+          <div className="cx-banner cx-banner--red" style={{ margin: '.6rem 0 0', display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '.5rem' }}>
+              <span><b>Voice Error:</b> {voice.error}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', marginLeft: 'auto' }}>
+                <button type="button" className="cx-btn cx-btn--primary cx-btn--sm" onClick={() => { voice.clearError(); void voice.startRecording(); }}>
+                  Retry Recording 🎙️
+                </button>
+                <button type="button" className="cx-btn cx-btn--secondary cx-btn--sm" onClick={() => audioFileInputRef.current?.click()} disabled={uploadingAudio}>
+                  Upload Audio File 📁
+                </button>
+                <button type="button" className="cx-btn cx-btn--ghost cx-btn--sm" onClick={voice.clearError}><X width={14} height={14} /></button>
+              </div>
+            </div>
+            {voice.error.toLowerCase().includes('permission') && (
+              <div style={{ fontSize: '.74rem', background: 'rgba(255,255,255,0.7)', padding: '.5rem .7rem', borderRadius: 8, color: '#991b1b', lineHeight: 1.5 }}>
+                <b>How to allow microphone in Chrome:</b>
+                <ol style={{ margin: '.2rem 0 0', paddingLeft: '1.2rem' }}>
+                  <li>Click the <b>Microphone icon (🎙️)</b> on the left side of <code>127.0.0.1:5173</code> in your address bar.</li>
+                  <li>Change the setting from <b>Blocked</b> to <b>Allow</b>.</li>
+                  <li>Click <b>Retry Recording 🎙️</b> (or test right now with <b>Upload Audio File 📁</b> using <code>sample_speech.wav</code>).</li>
+                </ol>
+              </div>
+            )}
+            {voice.stagingSteps && voice.stagingSteps.length > 0 && (
+              <div className="voice-staging-box">
+                <b>Air-Gap Model Staging Instructions:</b>
+                <ol>
+                  {voice.stagingSteps.map((step, idx) => <li key={idx}>{step}</li>)}
+                </ol>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Screen reader live announcements for accessibility */}
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {tts.screenReaderAnnouncement}
+        </div>
+
+        <p className="cx-sub" style={{ margin: '.6rem 0 0', fontSize: '.68rem' }}>
+          <Lock width={12} height={12} style={{ verticalAlign: '-2px' }} />{' '}
+          {config.useMocks
+            ? 'Verdicts here come from a browser-side demo heuristic. The real filters run in the backend.'
+            : 'Every message, voice transcript, and /rag command passes the backend injection scan, policy gates, taint tracking and audit log. Press Ctrl+Shift+Space for offline voice input. Press Ctrl+Shift+S for offline voice output.'}
+        </p>
       </Card>
       <PostureStrip />
     </Page>

@@ -36,7 +36,8 @@ def create_fastapi_app(ctx):
     def make_endpoint():
         async def endpoint(request: FRequest):
             ct = request.headers.get("content-type", "")
-            cap = ctx.settings.max_upload_bytes if ct.lower().startswith("multipart/") else ctx.settings.max_json_bytes
+            is_upload = ct.lower().startswith("multipart/") or ct.lower().startswith("audio/") or request.url.path == "/api/voice/transcribe"
+            cap = ctx.settings.max_upload_bytes if is_upload else ctx.settings.max_json_bytes
             body = b""
             async for chunk in request.stream():
                 body += chunk
@@ -51,6 +52,11 @@ def create_fastapi_app(ctx):
                 status = getattr(e, "status", 400)
                 return Response(json.dumps({"error": {"code": getattr(e, "code", "bad_request"), "message": getattr(e, "message", "Bad request")}}), status, media_type="application/json")
             status, payload, extra = await run_in_threadpool(dispatch, req)
+            extra = extra or {}
+            if isinstance(payload, (bytes, bytearray)):
+                return Response(content=bytes(payload), status_code=status,
+                                media_type=extra.get("Content-Type", "application/octet-stream"),
+                                headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", **extra})
             return Response(json.dumps(payload, ensure_ascii=False), status, media_type="application/json",
                             headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", **extra})
         return endpoint

@@ -39,10 +39,16 @@ def make_server(ctx, host: str | None = None, port: int | None = None) -> Thread
             pass
 
         def _send(self, status: int, payload, extra: dict | None = None):
-            raw = json.dumps(payload, ensure_ascii=False).encode()
+            extra = extra or {}
+            if isinstance(payload, (bytes, bytearray)):
+                raw = bytes(payload)
+                ct = extra.get("Content-Type", "application/octet-stream")
+            else:
+                raw = json.dumps(payload, ensure_ascii=False).encode()
+                ct = "application/json; charset=utf-8"
             self.send_response(status)
-            for k, v in {"Content-Type": "application/json; charset=utf-8", "Content-Length": str(len(raw)), "Cache-Control": "no-store",
-                         "X-Content-Type-Options": "nosniff", **cors_headers(self.headers.get("Origin"), allowed), **(extra or {})}.items():
+            for k, v in {"Content-Type": ct, "Content-Length": str(len(raw)), "Cache-Control": "no-store",
+                         "X-Content-Type-Options": "nosniff", **cors_headers(self.headers.get("Origin"), allowed), **extra}.items():
                 self.send_header(k, v)
             self.end_headers()
             self.wfile.write(raw)
@@ -60,7 +66,10 @@ def make_server(ctx, host: str | None = None, port: int | None = None) -> Thread
                 n = int(headers.get("content-length", "0") or 0)
             except ValueError:
                 return self._send(400, {"error": {"code": "bad_request", "message": "Bad Content-Length"}})
-            cap = ctx.settings.max_upload_bytes if headers.get("content-type", "").lower().startswith("multipart/") else ctx.settings.max_json_bytes
+            ct = headers.get("content-type", "").lower()
+            path_only = urlsplit(self.path).path
+            is_upload = ct.startswith("multipart/") or ct.startswith("audio/") or path_only == "/api/voice/transcribe"
+            cap = ctx.settings.max_upload_bytes if is_upload else ctx.settings.max_json_bytes
             if n > cap:
                 drained = 0  # read (and discard) a bounded amount so the client sees our 413, not a broken pipe
                 while drained < min(n, 4 * cap):

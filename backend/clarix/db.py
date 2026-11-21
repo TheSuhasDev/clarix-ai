@@ -47,6 +47,19 @@ CREATE TABLE IF NOT EXISTS telemetry(ts REAL PRIMARY KEY, cpu REAL, mem_gb REAL,
 CREATE TABLE IF NOT EXISTS agent_sessions(session_key TEXT PRIMARY KEY, actor TEXT NOT NULL, kind TEXT NOT NULL,
   sources_json TEXT NOT NULL, updated REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS grants(doc_name TEXT NOT NULL, granted_by TEXT NOT NULL, expires REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS agent_runs(
+  id TEXT PRIMARY KEY, created_at REAL NOT NULL, updated_at REAL NOT NULL,
+  actor TEXT NOT NULL, role TEXT NOT NULL, goal TEXT NOT NULL,
+  status TEXT NOT NULL, plan_mode TEXT NOT NULL,
+  plan_json TEXT, steps_json TEXT, result_text TEXT,
+  budget_json TEXT, meta_json TEXT, token TEXT, stop_reason TEXT, dry_run_diff TEXT, verification_json TEXT
+);
+CREATE TABLE IF NOT EXISTS agent_memory(
+  id TEXT PRIMARY KEY, session_id TEXT NOT NULL, key TEXT NOT NULL,
+  encrypted_blob TEXT NOT NULL, classification TEXT NOT NULL,
+  created_at REAL NOT NULL, updated_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_agent_memory_session ON agent_memory(session_id);
 """
 
 

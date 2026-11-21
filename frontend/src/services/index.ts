@@ -9,6 +9,8 @@ export { ollamaService } from './ollamaService';
 export { auditService } from './auditService';
 export type { IntegrityStatus, IntegrityIncident } from './auditService';
 export { healthService } from './healthService';
+export { voiceService } from './voiceService';
+export type { TranscriptionResponse } from './voiceService';
 export { settingsService } from './settingsService';
 export { config, setEndpoints, setApiToken, setSimulatedErrors, getSimulatedErrors } from './client';
 export { flags as demoFlags } from './mock/db';

@@ -139,6 +139,10 @@ class Dispatcher:
             if route.rate and not self.limiter.allow(f"{route.rate}:{req.client}:{req.operator}"):
                 raise ApiError(429, "rate_limited", "Too many requests. Slow down.")
             out = route.handler(self.ctx, req)
+            if isinstance(out, tuple) and len(out) == 3 and isinstance(out[0], int):
+                return out
+            if isinstance(out, tuple) and len(out) == 2 and isinstance(out[0], int):
+                return out[0], out[1], {}
             return 200, out, {}
         except ApiError as e:
             hdr = {"WWW-Authenticate": "Bearer"} if e.status == 401 else {}
@@ -147,6 +151,8 @@ class Dispatcher:
                 err_body["reason"] = getattr(e, "reason")
             if hasattr(e, "evidence"):
                 err_body["evidence"] = getattr(e, "evidence")
+            if hasattr(e, "extra") and isinstance(getattr(e, "extra"), dict):
+                err_body.update(getattr(e, "extra"))
 
             # Audit coverage: log 401, 403, 429 with rate-limiting
             if e.status in (401, 403, 429):

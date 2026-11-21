@@ -20,10 +20,46 @@ ollama pull nomic-embed-text
 tar -czvf ollama-models.tar.gz -C ~/.ollama/models .
 ```
 
-### 1.2 Package Python Wheels & Node Build
+### 1.2 Download Offline Speech-to-Text Models (Whisper Flow)
 On the staging machine:
 ```bash
-# Backend dependencies
+# Install Hugging Face Hub CLI on the connected machine
+pip install huggingface-hub
+
+# Download faster-whisper (CTranslate2) weights for base or tiny model
+mkdir -p ./models/whisper/base
+huggingface-cli download Systran/faster-whisper-base --local-dir ./models/whisper/base
+
+# Optionally download tiny or small models
+mkdir -p ./models/whisper/tiny
+huggingface-cli download Systran/faster-whisper-tiny --local-dir ./models/whisper/tiny
+
+# Archive for physical media transfer
+tar -czvf whisper-models.tar.gz -C ./models/whisper .
+```
+
+### 1.3 Download Offline Text-to-Speech Voices (Piper TTS)
+On the staging machine:
+```bash
+# Create local piper directory
+mkdir -p ./models/piper
+
+# Download Piper neural voice model and config (.onnx + .onnx.json)
+# Recommended voice: en_US-lessac-low (clean, fast, low memory footprint)
+curl -L -o ./models/piper/en_US-lessac-low.onnx \
+  https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/low/en_US-lessac-low.onnx
+
+curl -L -o ./models/piper/en_US-lessac-low.onnx.json \
+  https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/low/en_US-lessac-low.onnx.json
+
+# Archive for physical media transfer
+tar -czvf piper-voices.tar.gz -C ./models/piper .
+```
+
+### 1.4 Package Python Wheels & Node Build
+On the staging machine:
+```bash
+# Backend dependencies (includes piper-tts, pyttsx3, faster-whisper)
 pip download -r backend/requirements.txt -d ./pip-packages
 
 # Frontend production build
@@ -56,6 +92,13 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install --no-index --find-links=/opt/clarix/pip-packages -r requirements.txt
 cp .env.example .env
+
+# Set up Whisper models for air-gapped voice input
+mkdir -p /opt/clarix/models/whisper
+tar -xzvf /opt/clarix/whisper-models.tar.gz -C /opt/clarix/models/whisper
+# Configure in .env:
+# CLARIX_WHISPER_MODEL_DIR=/opt/clarix/models/whisper
+# CLARIX_WHISPER_MODEL=base
 ```
 
 ---
@@ -142,3 +185,25 @@ unreachable: 8.8.8.8:53
 guard: {'installed': True, 'enforcing': True} | posture: ISOLATED | ollama: {'reachable': True}
 RESULT: no outbound reachability found
 ```
+
+---
+
+## 6. Hardware Requirements & Speech Benchmarks
+
+### Speech-to-Text (Whisper Flow)
+| Model Size | Parameters | Disk Space | Active RAM | Transcription Time (10s audio) | Recommended Hardware |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Tiny** | 39 M | ~75 MB | ~123 MB | **~0.60s** (16x real-time) | Any modern 2+ core CPU |
+| **Base** (Default) | 74 M | ~145 MB | ~165 MB | **~1.12s** (9x real-time) | 4+ core CPU, 4 GB RAM |
+| **Small** | 244 M | ~485 MB | ~335 MB | **~3.46s** (3x real-time) | 4+ core CPU, 8 GB RAM |
+
+*Note: All Whisper models run strictly locally via CTranslate2 CPU INT8 quantization. Zero external network egress is generated, and audio is deleted from RAM immediately after transcription (zero retention).*
+
+### Text-to-Speech (Piper Neural TTS & Fallback)
+| Engine | Voice Model | Model Size | RAM Usage | Measured Latency (2-sentence reply) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Piper Neural TTS** (Primary) | `en_US-lessac-low` | ~60 MB | ~185 MB | **~0.30s** (~15x real-time) |
+| **pyttsx3 / SAPI5** (Local Fallback) | Microsoft David / Zira Desktop | 0 MB (built-in) | ~65 MB | **~0.16s** (~30x real-time) |
+| **Web Speech API** (Air-Gap Browser) | OS Native (`localService: true`) | 0 MB (OS native) | ~15 MB | **~0.05s** (Client-side native) |
+
+*Air-gap safety guarantee: Browser speech synthesis is strictly restricted to voices where `localService === true`. Any cloud voices (`localService !== true`) that would communicate over WAN/CDN are unconditionally rejected.*

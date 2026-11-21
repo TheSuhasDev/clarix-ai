@@ -24,6 +24,9 @@ export const policies: Policy[] = [
   { id: 'POL-005', priority: 5, name: 'Prevent External Data Transfer', category: 'Network', enabled: true, enforcements: 11, lastModified: '2026-09-21 09:20:05',
     description: 'Prevents tainted or classified data from reaching any outbound sink such as email, HTTP clients, or raw sockets.',
     rules: ['Block CONFIDENTIAL/RESTRICTED tainted tokens from entering network sinks', 'Deny send_email, http_post and network_request tool calls', 'Require SOC authorization for database exports', 'Record every blocked transfer attempt to the audit ledger'] },
+  { id: 'POL-006', priority: 6, name: 'Voice Input', category: 'Voice', enabled: true, enforcements: 0, lastModified: '2026-11-21 16:00:00',
+    description: 'Controls offline Whisper speech-to-text input processing. When disabled, audio transcription endpoints reject incoming audio.',
+    rules: ['Allow offline transcription of operator audio input', 'Enforce audio length (max 60s) and size (max 10MB) boundaries on speech inputs', 'Drop raw audio immediately after transcription (zero retention)', 'Route all speech transcripts into the standard input security scanner'] },
 ];
 
 export const tools: ToolDef[] = [

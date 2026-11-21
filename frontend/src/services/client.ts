@@ -103,6 +103,38 @@ export async function request<T>(path: string, init?: RequestInit, timeoutMs = 8
   }
 }
 
+export async function requestBlob(path: string, init?: RequestInit, timeoutMs = 20000): Promise<Blob> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const isForm = typeof FormData !== 'undefined' && init?.body instanceof FormData;
+    const res = await fetch(`${config.apiUrl}${path}`, {
+      ...init,
+      headers: {
+        ...(isForm ? {} : { 'Content-Type': 'application/json' }),
+        ...(config.apiToken ? { Authorization: `Bearer ${config.apiToken}` } : {}),
+        ...(init?.headers ?? {}),
+      },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      let msg = `Backend returned ${res.status} for ${path}`;
+      try {
+        const errBody = (await res.json()) as Record<string, any>;
+        if (errBody?.error?.message) msg = errBody.error.message;
+        else if (errBody?.message) msg = errBody.message;
+      } catch { /* ignore */ }
+      throw new ApiError(msg, res.status);
+    }
+    return await res.blob();
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    throw new ApiError(`Cannot reach backend at ${config.apiUrl}. Is the backend running?`);
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 /** Real connectivity probe used by Settings. Only loopback/LAN targets make sense in an air-gap. */
 export async function probe(url: string, path = ''): Promise<BackendStatus> {
   const started = performance.now();

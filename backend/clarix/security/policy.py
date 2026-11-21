@@ -139,6 +139,24 @@ def _pol005(e, a):
     return None
 
 
+def _pol006(e, a):
+    if a.kind == "voice_input":
+        return None
+    return None
+
+
+def _pol007(e, a):
+    if a.kind == "voice_output":
+        return None
+    return None
+
+
+def _pol008(e, a):
+    if a.kind == "agent_memory":
+        return None
+    return None
+
+
 POLICIES: tuple[PolicyDef, ...] = (
     PolicyDef("POL-001", 1, "No Internet Access", "Network",
               "Completely blocks all outbound and inbound socket connections to external WAN/Internet IPs and domain names. Enforces air-gapped isolation.",
@@ -160,6 +178,24 @@ POLICIES: tuple[PolicyDef, ...] = (
               "Prevents tainted or classified data from reaching any outbound sink such as email, HTTP clients, or raw sockets.",
               ("Block CONFIDENTIAL/RESTRICTED tainted tokens from entering network sinks", "Deny send_email, http_post and network_request tool calls",
                "Require SOC authorization for database exports", "Record every blocked transfer attempt to the audit ledger"), _pol005),
+    PolicyDef("POL-006", 6, "Voice Input", "Voice",
+              "Controls offline Whisper speech-to-text input processing. When disabled, audio transcription endpoints reject incoming audio.",
+              ("Allow offline transcription of operator audio input",
+               "Enforce audio length (max 60s) and size (max 10MB) boundaries on speech inputs",
+               "Drop raw audio immediately after transcription (zero retention)",
+               "Route all speech transcripts into the standard input security scanner"), _pol006),
+    PolicyDef("POL-007", 7, "Voice Output", "Voice",
+              "Controls offline Piper neural text-to-speech output. When disabled, speech synthesis endpoints reject requests.",
+              ("Allow offline text-to-speech synthesis using local Piper neural voice",
+               "Enforce maximum text length boundary (2000 characters) on synthesis requests",
+               "Sanitize response and redact secrets before neural synthesis",
+               "Log metadata only to audit ledger without storing synthesized text or audio"), _pol007),
+    PolicyDef("POL-008", 8, "Agent Memory", "Data",
+              "Controls local encrypted working and long-term agent memory. When disabled, memory reads and writes are rejected.",
+              ("Encrypt memory items at rest using local envelope encryption",
+               "Scan memory for instruction injection patterns on both write and read",
+               "Propagate classification taints from recalled memories into agent reasoning context",
+               "Support explicit operator memory wipe and redaction"), _pol008),
 )
 _BY_ID = {p.id: p for p in POLICIES}
 

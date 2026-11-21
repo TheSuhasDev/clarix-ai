@@ -29,7 +29,25 @@ Public liveness probe returning process status and guard posture. Does not requi
     "installed": true,
     "enforcing": true
   },
-  "uptimeS": 124
+  "uptimeS": 124,
+  "voice": {
+    "ready": true,
+    "loaded": false,
+    "model": "base",
+    "modelDir": "./models/whisper",
+    "policyEnabled": true
+  },
+  "tts": {
+    "engine": "piper",
+    "ready": true,
+    "voice": "en_US-lessac-low",
+    "voiceLoaded": true,
+    "voiceDir": "./models/piper",
+    "availableVoices": [
+      "en_US-lessac-low"
+    ],
+    "policyEnabled": true
+  }
 }
 ```
 
@@ -42,6 +60,96 @@ Aggregated SOC overview: total requests, blocked prompts, pending approvals, pos
 ---
 
 ## 2. Agent & Chat
+
+### `POST /api/voice/transcribe`
+Transcribes an audio recording offline using local faster-whisper (CTranslate2).
+Raw audio is processed in memory or a temporary file and destroyed immediately; raw audio is never stored in the database or audit logs.
+
+**Security Constraints:**
+- Rate limited with chat rate limiter.
+- Strict size boundary: maximum 10 MB payload (413 Payload Too Large if exceeded).
+- Strict duration boundary: maximum 60 seconds duration (400 Bad Request if exceeded).
+- Magic bytes validated: supports WebM (`\x1a\x45\xdf\xa3`), WAV (`RIFF`), and OGG (`OggS`).
+- Policy enforced: blocked with 403 Forbidden if policy toggle `POL-006` ("Voice Input") is disabled.
+- Untrusted transcript: The returned text is untrusted user input that passes through prompt injection detection and policy verification before execution.
+- Audit event: logs metadata only (`duration_ms`, `lang`, `model`, `size_bytes`), zero audio retention.
+
+**Request:**
+- `multipart/form-data`: `file` (audio blob) and optional `language` (ISO 639-1 code).
+- Alternatively, raw binary in body with `Content-Type: audio/webm` or `audio/wav`.
+
+**Response (200 OK):**
+```json
+{
+  "text": "Summarize the findings in quarterly_report.pdf",
+  "language": "en",
+  "durationMs": 412,
+  "model": "base"
+}
+```
+
+**Model Missing Error (503 Service Unavailable):**
+If offline model weights have not been staged to `CLARIX_WHISPER_MODEL_DIR`:
+```json
+{
+  "error": {
+    "code": "model_not_found",
+    "message": "Whisper offline model 'base' not found in './models/whisper'.",
+    "model": "base",
+    "modelDir": "./models/whisper",
+    "stagingSteps": [
+      "1. On an internet-connected workstation: pip install huggingface-hub",
+      "2. Download model: huggingface-cli download Systran/faster-whisper-base --local-dir ./models/whisper/base",
+      "3. Transfer directory via verified USB storage to: ./models/whisper/base",
+      "4. Verify model.bin and config.json are present."
+    ]
+  }
+}
+```
+
+### `POST /api/voice/speak`
+Synthesizes speech audio offline using local Piper neural text-to-speech.
+WAV audio is streamed directly from in-memory buffers; audio is never stored on disk.
+
+**Security Constraints:**
+- Rate limited with chat rate limiter.
+- Strict length boundary: maximum 2000 characters per request (400 Bad Request if exceeded).
+- Pre-synthesis secret redaction: all API keys, bearer tokens, passwords, and private keys are scrubbed before synthesis.
+- Markdown sanitization: code blocks, URLs, citations `[n]`, headers, and trace blocks are stripped before synthesis.
+- Policy enforced: blocked with 403 Forbidden if policy toggle `POL-007` ("Voice Output") is disabled.
+- Audit event: logs metadata only (`char_count`, `engine`, `voice`, `duration_ms`); zero raw text or audio retention.
+
+**Request (application/json):**
+```json
+{
+  "text": "System status is nominal. All air-gap boundary checks passed.",
+  "voice": "en_US-lessac-low",
+  "speed": 1.0
+}
+```
+
+**Response (200 OK):**
+- Headers: `Content-Type: audio/wav`, `Content-Length: <bytes>`
+- Body: In-memory binary RIFF/WAVE stream (16 kHz, 16-bit mono PCM).
+
+**Voice Missing Error (503 Service Unavailable):**
+If offline voice weights (`.onnx` and `.onnx.json`) have not been staged to `CLARIX_TTS_VOICE_DIR`:
+```json
+{
+  "error": {
+    "code": "voice_not_found",
+    "message": "Piper offline voice 'en_US-lessac-low' not found in './models/piper'.",
+    "voice": "en_US-lessac-low",
+    "voiceDir": "./models/piper",
+    "stagingSteps": [
+      "1. On an internet-connected workstation: curl -L -o en_US-lessac-low.onnx https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/low/en_US-lessac-low.onnx",
+      "2. curl -L -o en_US-lessac-low.onnx.json https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/low/en_US-lessac-low.onnx.json",
+      "3. Transfer files via verified USB storage to ./models/piper",
+      "4. Confirm .onnx and .onnx.json are present."
+    ]
+  }
+}
+```
 
 ### `POST /api/agent/chat`
 Submits a prompt through the complete AI harness, policy checks, tool loop, and audit ledger.
