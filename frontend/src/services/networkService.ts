@@ -23,6 +23,7 @@ export interface NetworkOverview {
     egressWatchMode?: string;
     note?: string;
   };
+  clarixExternalConnections?: number;
   interfacesUp?: number;
   interfacesTotal?: number;
   externalConnections?: number;
@@ -279,7 +280,7 @@ export const networkService = {
     if (config.useMocks) {
       return mock(() => ({
         windowSeconds,
-        rates: MOCK_OVERVIEW.rates,
+        rates: MOCK_OVERVIEW.rates || {},
         series: Array.from({ length: 15 }, (_, i) => ({
           t: `12:00:${String(i * 4).padStart(2, '0')}`,
           bytesSent: 1200 + Math.sin(i) * 400,
@@ -312,7 +313,7 @@ export const networkService = {
   },
 
   async getServices(): Promise<LocalServices> {
-    if (config.useMocks) return mock(() => ({ services: MOCK_OVERVIEW.services }));
+    if (config.useMocks) return mock(() => ({ services: MOCK_OVERVIEW.services || [] }));
     return request<LocalServices>('/api/network/services');
   },
 

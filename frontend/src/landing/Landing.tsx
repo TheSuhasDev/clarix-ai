@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Sidebar } from '../components/navigation/Sidebar';
 import { PillNav } from '../components/navigation/PillNav';
-import { SIDEBAR_SETTINGS_ITEM, useSidebarSections } from '../components/navigation/navItems';
-import { useConsole } from '../state/ConsoleContext';
 import { ROBOTS } from '../utils/assets';
 import { clamp, ease, show, win } from './anim';
 import { useRafScroll } from './useRafScroll';
@@ -93,10 +90,9 @@ function Story() {
   return (
     <section id="story" ref={section} aria-label="Introduction">
       <div className="view">
-        <h1 className="blk pad" id="h1" ref={h1}>The clarity your business <b>has been missing</b></h1>
+        <h1 className="blk pad" id="h1" ref={h1}>AI you can trust <b>with classified documents</b></h1>
         <div className="blk pad" id="meta" ref={meta}>
-          <div className="tags"><span>(A)</span><span>[001 /004]</span></div>
-          <p>Clarix is where your boldest ideas meet their full potential. We give you the tools not just to see the future.</p>
+          <p>Runs fully offline. Every answer is verified. Every action is provable.</p>
           <Link className="pill" to="/overview">Open console</Link>
         </div>
         <h2 className="blk pad" id="h2" ref={h2}>Empowering visionaries to shape tomorrow’s <b>digital landscapes</b></h2>
@@ -281,7 +277,6 @@ function Pinnacle() {
       <div className="pview">
         <canvas id="sparks" ref={canvas} aria-label="Clarix logo assembled from particles" />
         <h2>The pinnacle of generative art</h2>
-        <div className="tag"><span>(A)</span><span>[001 /004]</span></div>
         <p className="pl">Experience a new paradigm where your imagination meets our computational engine. Build entire worlds without writing a single line of code.</p>
         <p className="pr">Designed for <b>visionaries</b></p>
       </div>
@@ -332,36 +327,22 @@ function Future() {
 
 /* ---------------- page ---------------- */
 export default function Landing() {
-  const { sidebarCollapsed, setSidebarCollapsed } = useConsole();
-  const sections = useSidebarSections();
-
   useEffect(() => {
-    document.title = 'Clarix — AI Harness Agent';
+    document.title = 'Clarix — AI you can trust with classified documents';
   }, []);
 
   return (
-    <>
-      <Sidebar
-        sections={sections}
-        settingsItem={SIDEBAR_SETTINGS_ITEM}
-        collapsed={sidebarCollapsed}
-        onCollapsedChange={setSidebarCollapsed}
-      />
-      <div
-        className="landing"
-        style={{ '--sidebar-w': sidebarCollapsed ? '76px' : '220px' } as React.CSSProperties}
-      >
-        <RobotBackdrop />
-        <header className="top">
-          <PillNav />
-        </header>
-        <main>
-          <Story />
-          <Unlock />
-          <Pinnacle />
-          <Future />
-        </main>
-      </div>
-    </>
+    <div className="landing">
+      <RobotBackdrop />
+      <header className="top">
+        <PillNav />
+      </header>
+      <main>
+        <Story />
+        <Unlock />
+        <Pinnacle />
+        <Future />
+      </main>
+    </div>
   );
 }

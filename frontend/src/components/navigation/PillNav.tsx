@@ -32,42 +32,42 @@ export function PillNav() {
   const active = isConsoleSubroute ? 1 : activeIndex;
 
   const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
-  const [dotLeft, setDotLeft] = useState<number | null>(null);
+  const [highlightStyle, setHighlightStyle] = useState<{ left: number; width: number } | null>(null);
 
-  const updateDot = useCallback(
-    (index: number) => {
-      if (index < 0) {
-        setDotLeft(null);
-        return;
-      }
-      const el = itemRefs.current[index];
-      if (el) {
-        setDotLeft(el.offsetLeft + el.offsetWidth / 2);
-      }
-    },
-    []
-  );
+  const updateHighlight = useCallback((index: number) => {
+    if (index < 0) {
+      setHighlightStyle(null);
+      return;
+    }
+    const el = itemRefs.current[index];
+    if (el) {
+      setHighlightStyle({
+        left: el.offsetLeft,
+        width: el.offsetWidth,
+      });
+    }
+  }, []);
 
   useEffect(() => {
-    updateDot(active);
-  }, [active, updateDot]);
+    updateHighlight(active);
+  }, [active, updateHighlight, closed]);
 
   useEffect(() => {
     const onResize = () => {
-      updateDot(active);
+      updateHighlight(active);
     };
     window.addEventListener('resize', onResize);
     if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(() => updateDot(active));
+      document.fonts.ready.then(() => updateHighlight(active));
     }
     return () => window.removeEventListener('resize', onResize);
-  }, [active, updateDot]);
+  }, [active, updateHighlight]);
 
   const toggleNav = () => {
     setClosed((prev) => {
       const next = !prev;
       if (!next) {
-        setTimeout(() => updateDot(active), 520);
+        setTimeout(() => updateHighlight(active), 300);
       }
       return next;
     });
@@ -92,14 +92,25 @@ export function PillNav() {
         role="button"
         tabIndex={0}
         aria-expanded={!closed}
-        aria-label="Toggle navigation"
+        aria-label="Toggle navigation menu"
+        title={closed ? 'Expand navigation' : 'Collapse navigation'}
         onClick={toggleNav}
         onKeyDown={handleKeyDown}
       >
-        <ClarixMark size={20} />
+        <ClarixMark size={18} />
       </div>
 
-      <div className={styles.items}>
+      <div className={styles.items} id="items">
+        {highlightStyle && !closed && (
+          <span
+            className={styles.highlight}
+            style={{
+              transform: `translateX(${highlightStyle.left}px)`,
+              width: `${highlightStyle.width}px`,
+            }}
+            aria-hidden="true"
+          />
+        )}
         {NAV_LINKS.map((link, idx) => {
           const isActive = idx === active;
           return (
@@ -112,23 +123,11 @@ export function PillNav() {
               className={`${styles.item} ${isActive ? styles.active : ''}`}
               aria-current={isActive ? 'page' : undefined}
             >
-              <span className={styles.circle} aria-hidden="true" />
-              <span className={styles.labelWrap}>
-                <span className={styles.label}>{link.label}</span>
-                <span className={styles.labelHover} aria-hidden="true">
-                  {link.label}
-                </span>
-              </span>
+              <span className={styles.label}>{link.label}</span>
+              {isActive && <span className={styles.activeDot} aria-hidden="true" />}
             </Link>
           );
         })}
-        {dotLeft !== null && (
-          <span
-            className={styles.dot}
-            style={{ left: `${dotLeft}px` }}
-            aria-hidden="true"
-          />
-        )}
       </div>
     </nav>
   );

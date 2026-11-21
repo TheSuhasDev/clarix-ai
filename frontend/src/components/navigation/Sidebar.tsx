@@ -47,6 +47,12 @@ const STORAGE_KEY = 'clarix.sidebar.collapsed';
 
 function getStoredCollapsed(): boolean {
   try {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.has('collapsed')) {
+        return sp.get('collapsed') === 'true';
+      }
+    }
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved !== null) {
       return JSON.parse(saved);
@@ -291,6 +297,8 @@ export function Sidebar({
           tabIndex={isCollapsed ? 0 : -1}
           aria-label={isCollapsed ? 'Expand sidebar' : 'Clarix navigation'}
           aria-expanded={!isCollapsed}
+          data-tooltip={isCollapsed ? 'Clarix (Expand)' : undefined}
+          title={isCollapsed ? 'Clarix (Expand)' : undefined}
         >
           <div className={styles.mark} aria-hidden="true">
             <ClarixMark size={22} />
@@ -334,7 +342,8 @@ export function Sidebar({
                       itemRefs.current[item.key] = el;
                     }}
                     className={`${styles.row} ${isParentActive ? styles.rowParentActive : ''}`}
-                    title={isCollapsed ? item.label : undefined}
+                    title={isCollapsed ? (item.badge ? `${item.label} (${item.badge.text})` : item.label) : undefined}
+                    data-tooltip={isCollapsed ? (item.badge ? `${item.label} (${item.badge.text})` : item.label) : undefined}
                     aria-current={isActive && !isParentActive ? 'page' : undefined}
                     aria-expanded={hasChildren ? isGroupExpanded : undefined}
                     aria-controls={hasChildren ? `subgroup-${item.key}` : undefined}
@@ -433,6 +442,7 @@ export function Sidebar({
                 }}
                 className={styles.row}
                 title={isCollapsed ? settingsItem.label : undefined}
+                data-tooltip={isCollapsed ? settingsItem.label : undefined}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => onSelect?.(settingsItem.key)}
               >

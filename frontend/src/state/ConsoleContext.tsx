@@ -27,6 +27,10 @@ const PERF_MODE_STORAGE_KEY = 'clarix.performance.mode';
 
 function getInitialSidebarCollapsed(): boolean {
   try {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.has('collapsed')) return sp.get('collapsed') === 'true';
+    }
     const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
     if (saved !== null) return JSON.parse(saved);
   } catch {

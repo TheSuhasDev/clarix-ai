@@ -1000,7 +1000,7 @@ export default function NetworkPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#64748b' }}>Configured DNS:</span>
                       <span className="cx-mono">
-                        {overview?.posture.dnsServers.length ? overview.posture.dnsServers.join(', ') : 'None'}
+                        {overview?.posture.dnsServers?.length ? overview.posture.dnsServers.join(', ') : 'None'}
                       </span>
                     </div>
                   </div>

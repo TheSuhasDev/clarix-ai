@@ -37,26 +37,27 @@
 .demo i { width: .45rem; height: .45rem; border-radius: 50%; background: #ff9f1a; }
 @media (max-width: 760px) { .links { display: none; } }
 .shell {
-  --w: var(--sidebar-w-expanded, 220px);
+  --w: var(--sidebar-w-expanded, 200px);
   min-height: 100vh;
   position: relative;
 }
 
 .shellCollapsed {
-  --w: var(--sidebar-w-collapsed, 76px);
+  --w: var(--sidebar-w-collapsed, 64px);
 }
 
 .main {
   position: relative;
   z-index: var(--z-main);
   min-height: 100vh;
-  padding-left: calc(var(--w) + 28px);
-  transition: padding-left 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  padding-left: calc(var(--w) + 32px);
+  padding-right: 16px;
+  transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @media (max-width: 520px) {
   .main {
-    padding-left: calc(var(--w) + 14px);
+    padding-left: calc(var(--w) + 16px);
   }
 }
 
