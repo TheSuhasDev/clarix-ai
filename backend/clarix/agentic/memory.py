@@ -178,17 +178,19 @@ class AgentMemoryStore:
     ) -> int:
         """Clear memory ('Forget' action)."""
         if session_id and key:
-            deleted = self.ctx.db.x(
+            cur = self.ctx.db.x(
                 "DELETE FROM agent_memory WHERE session_id = ? AND key = ?",
                 (session_id, key),
             )
         elif session_id:
-            deleted = self.ctx.db.x(
+            cur = self.ctx.db.x(
                 "DELETE FROM agent_memory WHERE session_id = ?",
                 (session_id,),
             )
         else:
-            deleted = self.ctx.db.x("DELETE FROM agent_memory")
+            cur = self.ctx.db.x("DELETE FROM agent_memory")
+
+        deleted = cur.rowcount if hasattr(cur, "rowcount") else 0
 
         self.ctx.audit.append(
             user=actor,

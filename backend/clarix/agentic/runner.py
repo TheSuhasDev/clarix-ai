@@ -140,6 +140,11 @@ class AgentRunner:
                 risk=scan.risk,
                 status="BLOCKED",
                 source="agent_runner",
+                timeline=[
+                    {"step": "Ingress", "detail": "Agent run goal received", "ok": True},
+                    {"step": "Scan", "detail": f"Prompt injection detected: {scan.category}", "ok": False},
+                    {"step": "Policy", "detail": "Agent run rejected before planning", "ok": False},
+                ],
             )
             self.ctx.audit.append(
                 user=actor,
@@ -453,14 +458,14 @@ class AgentRunner:
         collected_sources: list[dict[str, Any]] = []
 
         try:
-            # ReAct loop
-            for plan_step in list(run.plan):
+            # ReAct loop (think -> act -> observe -> reflect per plan step)
+            for cycle_idx, plan_step in enumerate(list(run.plan), start=1):
                 # 1. Check Kill-switch & Pause status
                 if run.status in ("STOPPED", "PAUSED", "REJECTED"):
                     break
 
                 # 2. Check Budgets
-                if step_index > run.budget.max_steps:
+                if cycle_idx > run.budget.max_steps:
                     run.status = "BUDGET_EXCEEDED"
                     run.stop_reason = f"Max step budget ({run.budget.max_steps}) exceeded"
                     break
@@ -591,6 +596,11 @@ class AgentRunner:
                         risk=obs_scan.risk,
                         status="BLOCKED",
                         source="tool_observation",
+                        timeline=[
+                            {"step": "Tool Output", "detail": "Raw observation produced by tool execution", "ok": True},
+                            {"step": "Observe Scan", "detail": f"Observation poisoning payload detected: {obs_scan.category}", "ok": False},
+                            {"step": "Policy", "detail": "Withheld poisoned output and neutralized reasoning context", "ok": False},
+                        ],
                     )
                     self.ctx.audit.append(
                         user=run.actor,

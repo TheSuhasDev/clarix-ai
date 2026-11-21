@@ -500,7 +500,7 @@ def agent_runs_list(ctx, req):
 
 
 def agent_runs_get(ctx, req):
-    run_id = req.path_params.get("id", "")
+    run_id = req.params.get("id", "")
     run = ctx.agentic_runner.get_run(run_id)
     if not run:
         raise not_found(f"Agent run '{run_id}' not found")
@@ -508,7 +508,7 @@ def agent_runs_get(ctx, req):
 
 
 def agent_runs_stream(ctx, req):
-    run_id = req.path_params.get("id", "")
+    run_id = req.params.get("id", "")
     run = ctx.agentic_runner.get_run(run_id)
     if not run:
         raise not_found(f"Agent run '{run_id}' not found")
@@ -517,7 +517,7 @@ def agent_runs_stream(ctx, req):
 
 def agent_runs_approve_plan(ctx, req):
     ctx.integrity.ensure_not_locked()
-    run_id = req.path_params.get("id", "")
+    run_id = req.params.get("id", "")
     b = req.json()
     approved = bool(b.get("approved", True))
     steps = b.get("steps")
@@ -528,19 +528,19 @@ def agent_runs_approve_plan(ctx, req):
 
 
 def agent_runs_pause(ctx, req):
-    run_id = req.path_params.get("id", "")
+    run_id = req.params.get("id", "")
     run = ctx.agentic_runner.pause_run(run_id, actor=req.operator)
     return run.to_dict()
 
 
 def agent_runs_resume(ctx, req):
-    run_id = req.path_params.get("id", "")
+    run_id = req.params.get("id", "")
     run = ctx.agentic_runner.resume_run(run_id, actor=req.operator)
     return run.to_dict()
 
 
 def agent_runs_stop(ctx, req):
-    run_id = req.path_params.get("id", "")
+    run_id = req.params.get("id", "")
     run = ctx.agentic_runner.stop_run(run_id, actor=req.operator)
     return run.to_dict()
 
@@ -551,7 +551,7 @@ def agent_workflows_list(ctx, req):
 
 def agent_workflow_run(ctx, req):
     ctx.integrity.ensure_not_locked()
-    wf_id = req.path_params.get("id", "")
+    wf_id = req.params.get("id", "")
     wf = ctx.agentic_workflows.get_workflow(wf_id)
     if not wf:
         raise not_found(f"Workflow '{wf_id}' not found")

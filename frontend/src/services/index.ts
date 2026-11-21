@@ -11,6 +11,8 @@ export type { IntegrityStatus, IntegrityIncident } from './auditService';
 export { healthService } from './healthService';
 export { voiceService } from './voiceService';
 export type { TranscriptionResponse } from './voiceService';
+export { agenticService } from './agenticService';
+export type { AgentRun, PlanStep, RunStep, RunBudget, WorkflowDef, MemoryItem, SchedulerStatus } from './agenticService';
 export { settingsService } from './settingsService';
 export { config, setEndpoints, setApiToken, setSimulatedErrors, getSimulatedErrors } from './client';
 export { flags as demoFlags } from './mock/db';
