@@ -67,12 +67,12 @@
   --glass-hl-shadow: 0 4px 14px rgba(15, 42, 61, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.90);
 
   /* Glass pill nav variables (LIGHT THEME) */
-  --pill-bg: rgba(255, 255, 255, 0.75);
-  --pill-border: rgba(255, 255, 255, 0.85);
-  --pill-shadow: 0 8px 24px rgba(15, 42, 61, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --pill-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.40), rgba(255, 255, 255, 0.16));
+  --pill-border: rgba(255, 255, 255, 0.65);
+  --pill-shadow: 0 12px 36px rgba(15, 42, 61, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.70);
   --pill-text: #0f2a3d;
-  --pill-text-hover: #2563ff;
-  --pill-fill: rgba(255, 255, 255, 0.90);
+  --pill-text-hover: #071225;
+  --pill-fill: rgba(255, 255, 255, 0.75);
   --pill-dot: #2563ff;
 
   /* Badge tone tokens (LIGHT THEME) */
@@ -111,12 +111,12 @@
   --glass-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   --glass-hl-shadow: 0 4px 14px rgba(0, 0, 0, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 
-  --pill-bg: rgba(15, 23, 42, 0.85);
+  --pill-bg: rgba(255, 255, 255, 0.08);
   --pill-border: rgba(255, 255, 255, 0.22);
-  --pill-shadow: 0 8px 24px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  --pill-text: #e2e8f0;
+  --pill-shadow: 0 12px 36px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --pill-text: #eaf5f0;
   --pill-text-hover: #ffffff;
-  --pill-fill: rgba(255, 255, 255, 0.18);
+  --pill-fill: rgba(255, 255, 255, 0.22);
   --pill-dot: #34d399;
 
   --badge-danger-text: #fecaca;

@@ -1,118 +1,84 @@
-import { useEffect, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShieldAlert } from 'lucide-react';
 import { ClarixMark } from '../common/ClarixMark';
-import { auditService, type IntegrityStatus } from '../../services';
-import { useConsole } from '../../state/ConsoleContext';
 import styles from './PillNav.module.css';
 
-export interface PillNavProps {
-  integrity?: IntegrityStatus | null;
-  isDemo?: boolean;
-  toggling?: boolean;
-  onToggleDemo?: () => void;
+interface NavItem {
+  label: string;
+  path: string;
 }
 
-export function PillNav(props: PillNavProps) {
+const NAV_LINKS: NavItem[] = [
+  { label: 'Home', path: '/' },
+  { label: 'Console', path: '/overview' },
+  { label: 'Architecture', path: '/architecture' },
+  { label: 'Settings', path: '/settings' },
+];
+
+export function PillNav() {
+  const [closed, setClosed] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 900 : false));
   const location = useLocation();
-  const consoleCtx = useConsole();
-  const [closed, setClosed] = useState(false);
 
-  // Internal state fallback if props are not passed
-  const [internalIntegrity, setInternalIntegrity] = useState<IntegrityStatus | null>(null);
-  const [internalToggling, setInternalToggling] = useState(false);
+  const activeIndex = NAV_LINKS.findIndex((l) => {
+    if (l.path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(l.path);
+  });
+  // Map any other console sub-routes (/policies, /incidents, /network, /audit, etc.) to the Console item
+  const isConsoleSubroute =
+    activeIndex === -1 &&
+    location.pathname !== '/' &&
+    !location.pathname.startsWith('/architecture') &&
+    !location.pathname.startsWith('/settings');
+  const active = isConsoleSubroute ? 1 : activeIndex;
 
-  const hasProps = props.integrity !== undefined;
+  const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
+  const [dotLeft, setDotLeft] = useState<number | null>(null);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  const targetIndex = hoveredIndex !== null ? hoveredIndex : active;
+
+  const updateDot = useCallback((index: number) => {
+    if (index < 0) {
+      setDotLeft(null);
+      return;
+    }
+    const el = itemRefs.current[index];
+    if (el) {
+      setDotLeft(el.offsetLeft + el.offsetWidth / 2);
+    }
+  }, []);
 
   useEffect(() => {
-    if (hasProps) return;
-    let mounted = true;
-    const check = async () => {
-      try {
-        const st = await auditService.getIntegrityStatus();
-        if (mounted) setInternalIntegrity(st);
-      } catch {
-        // ignore
-      }
+    updateDot(targetIndex);
+  }, [targetIndex, updateDot]);
+
+  useEffect(() => {
+    const onResize = () => {
+      updateDot(targetIndex);
     };
-    check();
-    const interval = setInterval(check, 2500);
-
-    const onDemoChanged = (ev: Event) => {
-      const detail = (ev as CustomEvent).detail;
-      if (mounted && detail) {
-        setInternalIntegrity((prev) =>
-          prev
-            ? {
-                ...prev,
-                ledger: detail.ledger,
-                demoMode: detail.demoMode,
-                dbPath: detail.dbPath,
-                locked: detail.locked,
-              }
-            : null
-        );
-      }
-    };
-    window.addEventListener('clarix:demo_mode_changed', onDemoChanged);
-
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-      window.removeEventListener('clarix:demo_mode_changed', onDemoChanged);
-    };
-  }, [hasProps]);
-
-  const integrity = hasProps ? props.integrity : internalIntegrity;
-  const isDemo = hasProps
-    ? props.isDemo
-    : Boolean(integrity?.ledger === 'demo' || integrity?.demoMode);
-  const toggling = hasProps ? props.toggling : internalToggling;
-
-  const handleInternalToggleDemo = async () => {
-    setInternalToggling(true);
-    try {
-      const nextMode = !isDemo;
-      const res = await auditService.toggleDemoMode(nextMode);
-      setInternalIntegrity((prev) =>
-        prev
-          ? {
-              ...prev,
-              ledger: res.ledger,
-              demoMode: res.demoMode,
-              dbPath: res.dbPath,
-              locked: res.locked,
-            }
-          : null
-      );
-      consoleCtx.toast(
-        res.demoMode
-          ? 'Switched to Demo Mode (isolated sandbox ledger).'
-          : 'Returned to Live Ledger (production files untouched).',
-        'green'
-      );
-      window.dispatchEvent(
-        new CustomEvent('clarix:demo_mode_changed', { detail: res })
-      );
-    } catch (e: any) {
-      consoleCtx.toast(e?.message || 'Failed to switch demo mode', 'red');
-    } finally {
-      setInternalToggling(false);
+    window.addEventListener('resize', onResize);
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => updateDot(targetIndex));
     }
+    return () => window.removeEventListener('resize', onResize);
+  }, [targetIndex, updateDot]);
+
+  const toggleNav = () => {
+    setClosed((prev) => {
+      const next = !prev;
+      if (!next) {
+        setTimeout(() => updateDot(targetIndex), 400);
+      }
+      return next;
+    });
   };
 
-  const onToggleDemo = hasProps ? props.onToggleDemo : handleInternalToggleDemo;
-
-  const toggleNav = () => setClosed((prev) => !prev);
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLAnchorElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       toggleNav();
     }
   };
-
-  const isHomeActive = location.pathname === '/';
 
   return (
     <nav
@@ -120,73 +86,57 @@ export function PillNav(props: PillNavProps) {
       className={`${styles.nav} ${closed ? styles.closed : ''}`}
       aria-label="Pill navigation"
     >
-      <Link
-        to="/"
+      <div
         className={styles.logo}
         id="logo"
-        aria-label="Clarix Home"
-        title={closed ? 'Expand navigation' : 'Clarix AI Home'}
+        role="button"
+        tabIndex={0}
+        aria-expanded={!closed}
+        aria-label="Toggle navigation"
+        title={closed ? 'Expand navigation' : 'Collapse navigation'}
+        onClick={toggleNav}
         onKeyDown={handleKeyDown}
       >
-        <ClarixMark size={18} />
-      </Link>
+        <ClarixMark size={20} />
+      </div>
 
-      <div className={styles.items} id="items">
-        <Link
-          to="/"
-          className={`${styles.item} ${isHomeActive ? styles.active : ''}`}
-          aria-current={isHomeActive ? 'page' : undefined}
-        >
-          <span>Home</span>
-          {isHomeActive && <span className={styles.activeDot} aria-hidden="true" />}
-        </Link>
+      <div
+        className={styles.items}
+        id="items"
+        onMouseLeave={() => setHoveredIndex(null)}
+      >
+        {NAV_LINKS.map((link, i) => {
+          const isActive = i === active;
+          return (
+            <Link
+              key={link.path}
+              to={link.path}
+              ref={(el) => {
+                itemRefs.current[i] = el;
+              }}
+              className={`${styles.item} ${isActive ? styles.active : ''}`}
+              onMouseEnter={() => setHoveredIndex(i)}
+              onClick={() => {
+                setHoveredIndex(null);
+                updateDot(i);
+              }}
+            >
+              <span className={styles.circle} />
+              <span className={styles.labelWrap}>
+                <span className={styles.label}>{link.label}</span>
+                <span className={styles.labelHover}>{link.label}</span>
+              </span>
+            </Link>
+          );
+        })}
 
-        <div className={styles.divider} aria-hidden="true" />
-
-        {/* LIVE LEDGER / DEMO MODE / SYSTEM LOCKED BADGE */}
-        {integrity?.locked ? (
-          <Link
-            to="/audit"
-            className={`${styles.ledgerBadge} ${styles.lockedBadge}`}
-            title={`System locked: ${integrity.reason || 'Cryptographic tamper detected'}`}
-          >
-            <ShieldAlert width={13} height={13} />
-            <span>SYSTEM LOCKED</span>
-          </Link>
-        ) : isDemo ? (
-          <Link
-            to="/audit"
-            className={`${styles.ledgerBadge} ${styles.demoBadge}`}
-            title={`Isolated Demo Ledger active: ${integrity?.dbPath || 'data/demo/clarix_demo.db'}`}
-          >
-            <span className={styles.demoDot} />
-            <span>DEMO MODE</span>
-          </Link>
-        ) : (
-          <Link
-            to="/audit"
-            className={`${styles.ledgerBadge} ${styles.liveBadge}`}
-            title={`Live Production Ledger active: ${integrity?.dbPath || 'data/clarix.db'}`}
-          >
-            <span className={styles.liveDot} />
-            <span>LIVE LEDGER</span>
-          </Link>
+        {dotLeft !== null && targetIndex >= 0 && (
+          <span
+            className={styles.dot}
+            style={{ left: `${dotLeft}px` }}
+            aria-hidden="true"
+          />
         )}
-
-        {/* ENTER / EXIT DEMO MODE BUTTON */}
-        <button
-          type="button"
-          className={`${styles.demoBtn} ${isDemo ? styles.demoBtnActive : styles.demoBtnLive}`}
-          onClick={onToggleDemo}
-          disabled={toggling}
-          title={
-            isDemo
-              ? 'Exit Demo Mode and return to untouched production ledger'
-              : 'Enter Demo Mode to test attacks in safe sandbox'
-          }
-        >
-          {toggling ? 'Switching…' : isDemo ? 'Exit Demo Mode' : 'Enter Demo Mode'}
-        </button>
       </div>
     </nav>
   );
