@@ -186,6 +186,15 @@ guard: {'installed': True, 'enforcing': True} | posture: ISOLATED | ollama: {'re
 RESULT: no outbound reachability found
 ```
 
+### 5.1 In-App Network Monitor & Component Topology (`/network`)
+In addition to shell scripts, operators can inspect physical link layer and socket status in real time via the **Network Monitor** (`/network` in the operator console):
+- **ReactFlow Topology Canvas**: Visualizes the flow between browser, Vite frontend, backend API, Ollama, security harness gates (Injection, Policy, Approval, Audit, Integrity, Egress), and the severed outside world boundary.
+- **Active Sockets**: Filterable inspection of all host TCP/UDP connections classified by `LOOPBACK`, `LAN`, or `EXTERNAL`.
+- **Host Interfaces (NICs)**: Live MTU, speed, IPv4/IPv6 bindings, and TX/RX byte/packet throughput from the 150-sample ring buffer.
+- **Listening Ports**: Inspection of bound ports, flagging any wildcard `0.0.0.0` bindings.
+- **Host Egress Watch (POL-001)**: Background verification daemon monitoring host sockets with configurable fail-closed lockdown enforcement.
+- **Interactive Egress Probe**: "Test the Air-Gap" button tests socket interception directly in the console.
+
 ---
 
 ## 6. Hardware Requirements & Speech Benchmarks

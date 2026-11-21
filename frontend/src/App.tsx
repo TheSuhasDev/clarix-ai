@@ -14,6 +14,7 @@ const Policies = lazy(() => import('./pages/Policies'));
 const ToolPermissions = lazy(() => import('./pages/ToolPermissions'));
 const Approvals = lazy(() => import('./pages/Approvals'));
 const AirGap = lazy(() => import('./pages/AirGap'));
+const Network = lazy(() => import('./pages/Network'));
 const Rag = lazy(() => import('./pages/Rag'));
 const LocalTools = lazy(() => import('./pages/LocalTools'));
 const Ollama = lazy(() => import('./pages/Ollama'));
@@ -43,6 +44,7 @@ export default function App() {
               <Route path="/tool-permissions" element={<ToolPermissions />} />
               <Route path="/approvals" element={<Approvals />} />
               <Route path="/air-gap" element={<AirGap />} />
+              <Route path="/network" element={<Network />} />
               <Route path="/rag" element={<Rag />} />
               <Route path="/local-tools" element={<LocalTools />} />
               <Route path="/ollama" element={<Ollama />} />

@@ -17,6 +17,7 @@ from .integrity import IntegrityManager
 from .intent import IntentClassifier
 from .llm.ollama import OllamaClient
 from .metrics import Metrics
+from .netmon import NetworkMonitor
 from .rag.commands import RagCommands
 from .rag.embedder import Embedder
 from .rag.gate import RagGate
@@ -66,6 +67,7 @@ class Context:
         self.agentic_memory = AgentMemoryStore(self)
         self.agentic_workflows = AgenticWorkflowManager(self)
         self.agentic_runner = AgentRunner(self)
+        self.netmon = NetworkMonitor(self)
         self.started = time.time()
         guard.set_sink(self._on_blocked)
         if install_guard:
@@ -84,6 +86,7 @@ class Context:
     def start(self) -> None:
         self.telemetry.start()
         self.integrity.start()
+        self.netmon.start()
         if hasattr(self, "agentic_workflows") and hasattr(self.agentic_workflows, "scheduler"):
             self.agentic_workflows.scheduler.start()
 
@@ -92,6 +95,7 @@ class Context:
             self.agentic_workflows.scheduler.stop()
         if hasattr(self, "voice"):
             self.voice.shutdown()
+        self.netmon.close()
         self.telemetry.stop()
         self.integrity.stop()
         guard.set_sink(None)

@@ -419,3 +419,34 @@ Supported attack types: `edit_row_and_rehash`, `truncate_tail`, `forge_row`, `ro
 
 ### `GET /api/infrastructure/storage`
 Returns the status of local at-rest encryption (AES-256 Fernet) and key vault origin.
+
+---
+
+## 11. Network Telemetry & Topology (/network)
+
+Endpoints powering the real-time air-gap telemetry and interactive topology canvas.
+
+### `GET /api/network/overview`
+High-level host network posture, Clarix external connection count (0 in air-gapped state), listening port totals, and egress watch mode.
+
+### `GET /api/network/interfaces`
+Full enumeration of host network interfaces (NICs) via `psutil`, including MAC addresses, IPv4/IPv6 bindings, link status (UP/DOWN), speed, MTU, and TX/RX byte/packet counters.
+
+### `GET /api/network/traffic?window=60`
+Rolling network traffic rates (bytes/sec, packets/sec) computed over a 150-sample ring buffer, including time-series data for sparkline visualization.
+
+### `GET /api/network/connections?scope={all|external|lan|loopback}`
+Active TCP/UDP sockets with process identification (PID, executable name), local/remote addresses, connection state, IP classification (`LOOPBACK`, `LAN`, `EXTERNAL`), and Clarix ownership flag.
+
+### `GET /api/network/listeners`
+Listening ports across all interfaces, flagging wildcard bindings (`0.0.0.0`, `::`) and identifying local Clarix daemons (8000, 5173, 11434).
+
+### `GET /api/network/services`
+Component topology and operational health for local Clarix processes (Backend API, Vite Frontend, Ollama LLM Engine).
+
+### `GET /api/network/blocked?limit=100&offset=0`
+Audit log of outbound socket attempts dropped by the kernel/socket egress guard under POL-001.
+
+### `GET /api/network/map`
+ReactFlow-compatible graph topology `{posture, nodes, edges, clarixExternalCount}` representing local air-gapped component flow, security harness gates, and the severed WAN boundary.
+

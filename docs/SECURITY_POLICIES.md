@@ -23,6 +23,8 @@ Clarix assigns a security classification tag to all ingress prompts, documents, 
   2. In-process guard raises `AirGapViolation` before DNS resolution or packet transmission.
   3. External URLs in tool arguments or model proposals trigger immediate `BLOCK`.
   4. Blocked attempts are recorded to `blocked_connections` and committed to the audit ledger.
+  5. Continuous Host Egress Watch daemon (`NetworkMonitor`) samples OS TCP socket tables every 5 seconds to detect any external sockets owned by Clarix processes.
+  6. In `enforce` mode (`CLARIX_EGRESS_WATCH_MODE=enforce`), unauthorized external socket creation immediately triggers a POL-006 cryptographic lockdown and logs a critical security alert to the SHA-256 HMAC ledger. In `warn` mode (default in dev), alerts are committed to audit without locking down.
 
 ### POL-002: Sensitive File Protection
 - **Domain**: Data / Storage

@@ -140,6 +140,7 @@ flowchart TD
 ### 6. Local Infrastructure
 - **Encrypted Local Storage**: AES-256 envelope encryption at rest for documents and workspace data with local vault keys.
 - **Egress Guard**: In-process socket interception stopping non-loopback connections, complemented by kernel firewall rules.
+- **Real-Time Network Monitor & Topology Canvas (`/network`)**: Live host socket inspection (`psutil`), interface throughput monitoring, listening port audits, background Host Egress Watch daemon (POL-001 fail-closed enforcement), and an interactive ReactFlow architectural topology canvas.
 
 ---
 

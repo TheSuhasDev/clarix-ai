@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AlertTriangle, ArrowUpRight, Ban, Cloud, Info, ShieldCheck, WifiOff, XCircle, Activity } from 'lucide-react';
 import { Card, ErrorState, Loading, Page, PageHeader, Pill, Spinner } from '../components/common';
@@ -43,6 +44,15 @@ export default function AirGap() {
       {error && <Card><ErrorState message={error} onRetry={reload} /></Card>}
       {data && (
         <div className="cx-stack">
+          <div className="cx-banner cx-banner--blue" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <Activity width={16} height={16} />
+              <span><b>Interactive Network Topology:</b> Inspect real-time host sockets, interface throughput counters, and live component topology.</span>
+            </div>
+            <Link to="/network" className="cx-btn cx-btn--primary" style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem', textDecoration: 'none' }}>
+              Open Network Monitor <ArrowUpRight width={13} height={13} />
+            </Link>
+          </div>
           {data.posture && data.posture.status !== 'ISOLATED' && (
             <div className="cx-banner" role="status"><AlertTriangle /><span><b>Observed on this host:</b> {data.posture.reasons.join(' ') || 'Posture could not be confirmed.'} The in-process egress guard is {data.posture.guard.enforcing ? 'enforcing' : 'NOT enforcing'}, but real isolation needs the OS firewall or a physical disconnect (see the backend deploy/ folder).</span></div>
           )}

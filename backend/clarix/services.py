@@ -671,3 +671,50 @@ def agent_scheduler_toggle(ctx, req):
     return ctx.agentic_workflows.scheduler.toggle(enabled=enabled)
 
 
+# --------------------------------------------------------------------------- network monitor
+def netmon_overview(ctx, req):
+    return ctx.netmon.get_overview()
+
+
+def netmon_interfaces(ctx, req):
+    return ctx.netmon.get_interfaces()
+
+
+def netmon_traffic(ctx, req):
+    try:
+        window = int(req.query.get("window", "60"))
+    except (ValueError, TypeError):
+        window = 60
+    return ctx.netmon.get_traffic(window_seconds=window)
+
+
+def netmon_connections(ctx, req):
+    scope = req.query.get("scope", "all")
+    return ctx.netmon.get_connections(scope=scope)
+
+
+def netmon_listeners(ctx, req):
+    return ctx.netmon.get_listeners()
+
+
+def netmon_services(ctx, req):
+    return ctx.netmon.get_services()
+
+
+def netmon_blocked(ctx, req):
+    try:
+        limit = max(1, min(200, int(req.query.get("limit", "50"))))
+    except (ValueError, TypeError):
+        limit = 50
+    try:
+        offset = max(0, int(req.query.get("offset", "0")))
+    except (ValueError, TypeError):
+        offset = 0
+    return ctx.netmon.get_blocked_connections(limit=limit, offset=offset)
+
+
+def netmon_map(ctx, req):
+    return ctx.netmon.get_network_map()
+
+
+

@@ -56,5 +56,13 @@ ROUTES: list[Route] = [
     Route("POST", "/api/agent/memory/clear", s.agent_memory_clear, "Clear agent memory items (Forget)", "agent"),
     Route("GET", "/api/agent/scheduler", s.agent_scheduler_status, "Get offline scheduler status", "agent"),
     Route("POST", "/api/agent/scheduler/toggle", s.agent_scheduler_toggle, "Toggle offline scheduler", "agent"),
+    Route("GET", "/api/network/overview", s.netmon_overview, "Get network monitor overview", "network"),
+    Route("GET", "/api/network/interfaces", s.netmon_interfaces, "Get network interfaces", "network"),
+    Route("GET", "/api/network/traffic", s.netmon_traffic, "Get live network traffic timeseries", "network"),
+    Route("GET", "/api/network/connections", s.netmon_connections, "Get active socket connections", "network"),
+    Route("GET", "/api/network/listeners", s.netmon_listeners, "Get listening ports", "network"),
+    Route("GET", "/api/network/services", s.netmon_services, "Get local service endpoints", "network"),
+    Route("GET", "/api/network/blocked", s.netmon_blocked, "Get blocked egress attempts", "network"),
+    Route("GET", "/api/network/map", s.netmon_map, "Get network topology map", "network"),
     Route("GET", "/api/health", s.health_view, "Subsystem health and host telemetry", "health"),
 ]

@@ -13,6 +13,20 @@ export { voiceService } from './voiceService';
 export type { TranscriptionResponse } from './voiceService';
 export { agenticService } from './agenticService';
 export type { AgentRun, PlanStep, RunStep, RunBudget, WorkflowDef, MemoryItem, SchedulerStatus } from './agenticService';
+export { networkService } from './networkService';
+export type {
+  NetworkOverview,
+  NetworkInterface,
+  TrafficTimeseries,
+  SocketConnection,
+  ListenerPort,
+  LocalServices,
+  BlockedConnection,
+  BlockedConnectionsResponse,
+  NetworkMapNode,
+  NetworkMapEdge,
+  NetworkMapResponse,
+} from './networkService';
 export { settingsService } from './settingsService';
 export { config, setEndpoints, setApiToken, setSimulatedErrors, getSimulatedErrors } from './client';
 export { flags as demoFlags } from './mock/db';
