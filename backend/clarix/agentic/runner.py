@@ -359,8 +359,10 @@ class AgentRunner:
             return run
 
         # User approved plan (optionally with modified steps)
-        if steps:
-            run.plan = [PlanStep.from_dict(s) for s in steps]
+        if steps and isinstance(steps, list):
+            parsed_steps = [PlanStep.from_dict(s) for s in steps if isinstance(s, dict)]
+            if parsed_steps:
+                run.plan = parsed_steps
 
         run.status = "RUNNING"
         self._save_run(run)

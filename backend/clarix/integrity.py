@@ -65,7 +65,9 @@ class IntegrityManager:
             self.mode = "enforce"
 
         self._lock = threading.RLock()
-        self._key = self._load_or_create_key()
+        self._real_key = self._load_key_from(self.real_data_dir / "audit.key")
+        self._demo_key = self._load_key_from(self.demo_data_dir / "audit_demo.key")
+        self._key = self._demo_key if self.demo_mode else self._real_key
         self._bg_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._last_checked = 0.0
@@ -74,47 +76,54 @@ class IntegrityManager:
 
         from .db import Database
         from .audit import AuditLog
+
+        # Production audit log is ALWAYS bound to real key and real anchor callback
+        if hasattr(self.ctx, "audit") and self.ctx.audit is not None:
+            self.ctx.audit._anchor_cb = self.on_real_audit_append
+            self.ctx.audit._key = self._real_key
+            self.ctx.audit._upgrade_seq = self.ctx.audit._find_upgrade_seq()
+
         if self.demo_mode:
             self.demo_db = Database(self.demo_db_path)
             self.demo_audit = AuditLog(self.demo_db)
             self.active_db = self.demo_db
             self.active_audit = self.demo_audit
-            self.demo_audit._anchor_cb = self.on_audit_append
-            self.demo_audit._key = self._key
+            self.demo_audit._anchor_cb = self.on_demo_audit_append
+            self.demo_audit._key = self._demo_key
             self.demo_audit._upgrade_seq = self.demo_audit._find_upgrade_seq()
         else:
             self.active_db = self.ctx.db
             self.active_audit = self.ctx.audit
-            if hasattr(self.ctx, "audit") and self.ctx.audit is not None:
-                self.ctx.audit._anchor_cb = self.on_audit_append
-                self.ctx.audit._key = self._key
-                self.ctx.audit._upgrade_seq = self.ctx.audit._find_upgrade_seq()
 
     @property
     def key(self) -> bytes:
         return self._key
 
-    def _load_or_create_key(self) -> bytes:
-        if self.key_file.is_file():
+    def _load_key_from(self, path: Path) -> bytes:
+        if path.is_file():
             try:
-                raw = self.key_file.read_bytes().strip()
+                raw = path.read_bytes().strip()
                 if len(raw) == 64:  # hex encoded
                     return bytes.fromhex(raw.decode("ascii"))
                 elif len(raw) >= 32:
                     return raw[:32]
             except Exception as e:
-                log.warning("Could not read existing audit.key (%s); regenerating", e)
+                log.warning("Could not read key from %s (%s); regenerating", path, e)
         # Generate new 32-byte secret key
         key = os.urandom(32)
         try:
-            self.key_file.write_bytes(key.hex().encode("ascii"))
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(key.hex().encode("ascii"))
             try:
-                os.chmod(self.key_file, stat.S_IRUSR | stat.S_IWUSR)  # 0600
+                os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)  # 0600
             except Exception:
                 pass
         except Exception as e:
-            log.error("Failed to write audit.key: %s", e)
+            log.error("Failed to write key to %s: %s", path, e)
         return key
+
+    def _load_or_create_key(self) -> bytes:
+        return self._load_key_from(self.key_file)
 
     # ---------------------------------------------------------------------------
     # Signed Security State
@@ -406,9 +415,52 @@ class IntegrityManager:
         self._last_full_verify = time.time()
         return True, "", ""
 
+    def on_real_audit_append(self, count: int, head_hash: str) -> dict:
+        """Hook called when live production ledger appends an event."""
+        with self._lock:
+            ts = utcstamp()
+            canonical = f"{count}:{head_hash}:{ts}"
+            sig = hmac.new(self._real_key, canonical.encode("utf-8"), hashlib.sha256).hexdigest()
+            payload = {
+                "count": count,
+                "head_hash": head_hash,
+                "timestamp": ts,
+                "signature": sig,
+                "algorithm": "HMAC-SHA256",
+                "key_source": "audit.key"
+            }
+            anchor_f = self.real_data_dir / "audit_anchor.json"
+            tmp = anchor_f.with_suffix(".tmp")
+            tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            tmp.replace(anchor_f)
+            return payload
+
+    def on_demo_audit_append(self, count: int, head_hash: str) -> dict:
+        """Hook called when isolated demo ledger appends an event."""
+        with self._lock:
+            ts = utcstamp()
+            canonical = f"{count}:{head_hash}:{ts}"
+            sig = hmac.new(self._demo_key, canonical.encode("utf-8"), hashlib.sha256).hexdigest()
+            payload = {
+                "count": count,
+                "head_hash": head_hash,
+                "timestamp": ts,
+                "signature": sig,
+                "algorithm": "HMAC-SHA256",
+                "key_source": "audit_demo.key"
+            }
+            anchor_f = self.demo_data_dir / "audit_demo_anchor.json"
+            tmp = anchor_f.with_suffix(".tmp")
+            tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            tmp.replace(anchor_f)
+            return payload
+
     def on_audit_append(self, seq: int, head_hash: str) -> None:
         """Hook called by AuditLog after an append completes."""
-        self.write_anchor(seq, head_hash)
+        if self.demo_mode:
+            self.on_demo_audit_append(seq, head_hash)
+        else:
+            self.on_real_audit_append(seq, head_hash)
 
     def create_snapshot(self) -> Path:
         """Create a consistent transaction-safe SQLite snapshot in snapshots/latest.db."""
@@ -698,16 +750,16 @@ class IntegrityManager:
                 if not self.demo_db_path.is_file() or self.demo_audit.count() == 0:
                     self.reset_demo()
                 else:
-                    self._key = self._load_or_create_key()
-                    self.demo_audit._key = self._key
-                    self.demo_audit._anchor_cb = self.on_audit_append
+                    self._key = self._demo_key
+                    self.demo_audit._key = self._demo_key
+                    self.demo_audit._anchor_cb = self.on_demo_audit_append
                     self.demo_audit._upgrade_seq = self.demo_audit._find_upgrade_seq()
             else:
                 self.active_db = self.ctx.db
                 self.active_audit = self.ctx.audit
-                self._key = self._load_or_create_key()
-                self.ctx.audit._key = self._key
-                self.ctx.audit._anchor_cb = self.on_audit_append
+                self._key = self._real_key
+                self.ctx.audit._key = self._real_key
+                self.ctx.audit._anchor_cb = self.on_real_audit_append
                 self.ctx.audit._upgrade_seq = self.ctx.audit._find_upgrade_seq()
 
             if hasattr(self.ctx, "settings"):

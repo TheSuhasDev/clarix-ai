@@ -590,11 +590,14 @@ def agent_runs_stream(ctx, req):
 def agent_runs_approve_plan(ctx, req):
     ctx.integrity.ensure_not_locked()
     run_id = req.params.get("id", "")
+    if not run_id:
+        raise bad_request("Missing run ID")
     b = req.json()
     approved = bool(b.get("approved", True))
     steps = b.get("steps")
+    actor = getattr(req, "operator", None) or "operator"
     run = ctx.agentic_runner.approve_plan(
-        run_id, approved=approved, steps=steps, actor=req.operator
+        run_id, approved=approved, steps=steps, actor=actor
     )
     return run.to_dict()
 

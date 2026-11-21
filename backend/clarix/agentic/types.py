@@ -28,15 +28,21 @@ class PlanStep:
         }
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> PlanStep:
+    def from_dict(cls, d: dict[str, Any] | None) -> PlanStep:
+        if not isinstance(d, dict):
+            return cls(step=1, description="", tool="", input="")
+        try:
+            st = int(d.get("step") or 1)
+        except (ValueError, TypeError):
+            st = 1
         return cls(
-            step=int(d.get("step", 1)),
-            description=str(d.get("description", "")),
-            tool=str(d.get("tool", "")),
-            input=str(d.get("input", "")),
-            risk=str(d.get("risk", "LOW")),
-            predicted_decision=str(d.get("predictedDecision", d.get("predicted_decision", "ALLOW"))),
-            needs_approval=bool(d.get("needsApproval", d.get("needs_approval", False))),
+            step=st,
+            description=str(d.get("description") or ""),
+            tool=str(d.get("tool") or ""),
+            input=str(d.get("input") or ""),
+            risk=str(d.get("risk") or "LOW"),
+            predicted_decision=str(d.get("predictedDecision") or d.get("predicted_decision") or "ALLOW"),
+            needs_approval=bool(d.get("needsApproval") or d.get("needs_approval") or False),
         )
 
 
@@ -100,14 +106,24 @@ class RunBudget:
         }
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any] | None) -> RunBudget:
-        if not d:
+    def from_dict(cls, d: dict[str, Any] | RunBudget | None) -> RunBudget:
+        if isinstance(d, RunBudget):
+            return d
+        if not isinstance(d, dict):
             return cls()
-        return cls(
-            max_steps=int(d.get("maxSteps", d.get("max_steps", 8))),
-            max_seconds=float(d.get("maxSeconds", d.get("max_seconds", 120.0))),
-            max_tool_calls=int(d.get("maxToolCalls", d.get("max_tool_calls", 10))),
-        )
+        try:
+            ms = int(d.get("maxSteps") or d.get("max_steps") or 8)
+        except (ValueError, TypeError):
+            ms = 8
+        try:
+            msec = float(d.get("maxSeconds") or d.get("max_seconds") or 120.0)
+        except (ValueError, TypeError):
+            msec = 120.0
+        try:
+            mtc = int(d.get("maxToolCalls") or d.get("max_tool_calls") or 10)
+        except (ValueError, TypeError):
+            mtc = 10
+        return cls(max_steps=ms, max_seconds=msec, max_tool_calls=mtc)
 
 
 @dataclass
@@ -131,6 +147,7 @@ class AgentRun:
     verification: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        b = self.budget.to_dict() if isinstance(self.budget, RunBudget) else RunBudget.from_dict(self.budget).to_dict()
         return {
             "id": self.id,
             "createdAt": self.created_at,
@@ -140,12 +157,12 @@ class AgentRun:
             "goal": self.goal,
             "status": self.status,
             "planMode": self.plan_mode,
-            "plan": [p.to_dict() for p in self.plan],
-            "steps": [s.to_dict() for s in self.steps],
+            "plan": [p.to_dict() if isinstance(p, PlanStep) else PlanStep.from_dict(p).to_dict() for p in (self.plan or [])],
+            "steps": [s.to_dict() if isinstance(s, RunStep) else RunStep.from_dict(s).to_dict() for s in (self.steps or [])],
             "resultText": self.result_text,
-            "budget": self.budget.to_dict(),
+            "budget": b,
             "token": self.token,
-            "meta": self.meta,
+            "meta": self.meta or {},
             "stopReason": self.stop_reason,
             "dryRunDiff": self.dry_run_diff,
             "verification": self.verification,
