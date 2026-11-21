@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Database, FileText, Search, Upload } from 'lucide-react';
+import { Database, FileText, Search, Trash2, Upload } from 'lucide-react';
 import { Card, ClassPill, EmptyState, ErrorState, Loading, Page, PageHeader, Pill, Spinner, TrustPill } from '../components/common';
 import { useAsync } from '../hooks/useAsync';
 import { config, ragService } from '../services';
@@ -23,6 +23,7 @@ export default function Rag() {
   const [query, setQuery] = useState('What is the security policy?');
   const [results, setResults] = useState<RagChunk[] | null>(null);
   const [searching, setSearching] = useState(false);
+  const [deletingName, setDeletingName] = useState<string | null>(null);
 
   const total = (docs.data ?? []).reduce((n, d) => n + d.chunks, 0);
 
@@ -31,6 +32,7 @@ export default function Rag() {
     if (!ALLOWED_EXT.test(f.name)) { setFileErr('Supported types: .pdf, .docx, .pptx, .csv, .txt, .md'); return; }
     setFileErr(''); setFile(f); setFileName(f.name); setSize(Math.max(1, Math.round(f.size / 1024)));
   }
+
   async function ingest() {
     const name = fileName.trim();
     if (!name) { setFileErr('Choose a file or type a file name first.'); return; }
@@ -42,6 +44,7 @@ export default function Rag() {
     } catch (e) { toast(e instanceof Error ? e.message : 'Ingestion failed', 'red'); }
     finally { setIngesting(false); }
   }
+
   async function search() {
     if (!query.trim()) return;
     setSearching(true);
@@ -49,12 +52,27 @@ export default function Rag() {
     finally { setSearching(false); }
   }
 
+  async function onDeleteDoc(name: string) {
+    if (!window.confirm(`Delete "${name}" from local vector index and storage?`)) return;
+    setDeletingName(name);
+    try {
+      await ragService.delete(name);
+      docs.setData((prev) => (prev ?? []).filter((d) => d.name !== name));
+      refreshCounts();
+      toast(`Deleted ${name} from local RAG`, 'green');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Delete failed', 'red');
+    } finally {
+      setDeletingName(null);
+    }
+  }
+
   return (
     <Page>
       <PageHeader icon={<Database color="#2563ff" />} title="Local Vector RAG & Embedding Vault" subtitle="Air-gapped semantic search using local dense vector embeddings (nomic-embed-text) with source-level taint tagging."
         aside={<Pill tone="green" dot large>{total} Vector Chunks Indexed Locally</Pill>} />
       <div className="cx-grid cx-grid--2" style={{ alignItems: 'start' }}>
-        <Card title="Simulate document ingestion & embeddings" icon={<Upload color="#2563ff" />}>
+        <Card title={config.useMocks ? "Simulate document ingestion & embeddings" : "Document Ingestion & Local Embeddings"} icon={<Upload color="#2563ff" />}>
           <label className="cx-label" htmlFor="fname">Document File Name:</label>
           <div className="cx-row" style={{ flexWrap: 'nowrap', marginBottom: '.9rem' }}>
             <input id="fname" className="cx-input" value={fileName} onChange={(e) => { setFileName(e.target.value); setFile(null); }} placeholder="e.g. incident_response_runbook.pdf" />
@@ -64,8 +82,14 @@ export default function Rag() {
           <label className="cx-label" htmlFor="cls">Classification Tag (Taint Origin):</label>
           <select id="cls" className="cx-select" value={cls} onChange={(e) => setCls(e.target.value as Classification)} style={{ marginBottom: '.9rem' }}>{CLASSES.map((c) => <option key={c}>{c}</option>)}</select>
           {fileErr && <p className="cx-sub tone-red" role="alert">{fileErr}</p>}
-          <button type="button" className="cx-btn cx-btn--primary" style={{ width: '100%', padding: '.85rem' }} disabled={ingesting} onClick={() => void ingest()}>{ingesting ? <Spinner label="Embedding (simulated)…" /> : <><Upload />Simulate Local Ingestion</>}</button>
-          <p className="cx-sub" style={{ margin: '.8rem 0 0', fontSize: '.68rem' }}>Simulation: file contents are neither read nor embedded. In production the backend would embed locally with Ollama nomic-embed-text (768 dimensions); no cloud API calls.</p>
+          <button type="button" className="cx-btn cx-btn--primary" style={{ width: '100%', padding: '.85rem' }} disabled={ingesting} onClick={() => void ingest()}>
+            {ingesting ? <Spinner label={config.useMocks ? "Embedding (simulated)…" : "Embedding locally (nomic-embed-text)…"} /> : <><Upload />{config.useMocks ? 'Simulate Local Ingestion' : 'Ingest & Embed Document'}</>}
+          </button>
+          {config.useMocks ? (
+            <p className="cx-sub" style={{ margin: '.8rem 0 0', fontSize: '.68rem' }}>Simulation: file contents are neither read nor embedded. In production the backend would embed locally with Ollama nomic-embed-text (768 dimensions); no cloud API calls.</p>
+          ) : (
+            <p className="cx-sub" style={{ margin: '.8rem 0 0', fontSize: '.68rem' }}>Air-gapped vectorization: file contents are chunked, scanned for prompt injections, and embedded locally via Ollama nomic-embed-text (768 dimensions). Encrypted in workspace.</p>
+          )}
         </Card>
 
         <Card title="Interactive local retrieval query tester" icon={<Search color="#2563ff" />}>
@@ -74,7 +98,7 @@ export default function Rag() {
             <button type="submit" className="cx-btn cx-btn--primary" disabled={searching || !query.trim()}>{searching ? <Spinner /> : 'Search'}</button>
           </form>
           <div className="rag-results" aria-live="polite">
-            {!results && <EmptyState title="Run a query" hint="Results are ranked by keyword overlap over sample chunks (not real embeddings)." />}
+            {!results && <EmptyState title="Run a query" hint={config.useMocks ? "Results are ranked by keyword overlap over sample chunks (not real embeddings)." : "Enter a query to run semantic search over local vector embeddings."} />}
             {results?.map((c) => (
               <article key={c.id} className="rag-chunk">
                 <div><b className="tone-blue cx-mono">Chunk #{c.id}</b> <span className="cx-mono">• {c.doc} (p. {c.page})</span></div>
@@ -86,15 +110,21 @@ export default function Rag() {
         </Card>
       </div>
 
-      <Card title="Indexed local documents" icon={<FileText color="#2563ff" />} aside={<span className="cx-muted cx-mono" style={{ fontSize: '.72rem', fontWeight: 400, textTransform: 'none' }}>{docs.data?.length ?? 0} documents loaded (sample data)</span>} className="rag-docs">
+      <Card title="Indexed local documents" icon={<FileText color="#2563ff" />} aside={<span className="cx-muted cx-mono" style={{ fontSize: '.72rem', fontWeight: 400, textTransform: 'none' }}>{docs.data?.length ?? 0} {config.useMocks ? 'documents loaded (sample data)' : 'documents indexed locally'}</span>} className="rag-docs">
         {docs.loading && <Loading rows={3} height={44} />}
         {docs.error && <ErrorState message={docs.error} onRetry={docs.reload} />}
         {docs.data && (
           <div className="cx-tbl-wrap"><table className="cx-tbl">
-            <thead><tr><th>Document name</th><th>Size</th><th>Chunks</th><th>Embedding status</th><th>Trust level</th><th>Classification</th><th>Last indexed</th></tr></thead>
+            <thead><tr><th>Document name</th><th>Size</th><th>Chunks</th><th>Embedding status</th><th>Trust level</th><th>Classification</th><th>Last indexed</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
             <tbody>{docs.data.map((d) => (
               <tr key={d.name + d.lastIndexed}><td className="cx-code"><FileText width={14} height={14} color="#2563ff" style={{ verticalAlign: '-2px', marginRight: 6 }} />{d.name}</td><td>{formatSize(d.sizeKb)}</td><td><b>{d.chunks}</b></td>
-                <td><Pill dot>{d.status}</Pill></td><td><TrustPill value={d.trust} /></td><td><ClassPill value={d.classification} /></td><td className="cx-mono" style={{ fontSize: '.74rem' }}>{d.lastIndexed}</td></tr>
+                <td><Pill dot>{d.status}</Pill></td><td><TrustPill value={d.trust} /></td><td><ClassPill value={d.classification} /></td><td className="cx-mono" style={{ fontSize: '.74rem' }}>{d.lastIndexed}</td>
+                <td style={{ textAlign: 'right' }}>
+                  <button type="button" className="cx-btn cx-btn--ghost cx-btn--sm" title={`Delete ${d.name}`} aria-label={`Delete ${d.name}`} disabled={deletingName === d.name} onClick={() => void onDeleteDoc(d.name)}>
+                    {deletingName === d.name ? <Spinner /> : <Trash2 width={13} height={13} color="#d92f59" />}
+                  </button>
+                </td>
+              </tr>
             ))}</tbody>
           </table></div>
         )}

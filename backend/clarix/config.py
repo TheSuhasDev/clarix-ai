@@ -74,12 +74,33 @@ class Settings:
     tts_enabled: bool = True
 
     @property
+    def real_data_dir(self) -> Path:
+        return self.data_dir
+
+    @property
+    def real_db_path(self) -> Path:
+        return self.data_dir / "clarix.db"
+
+    @property
+    def demo_data_dir(self) -> Path:
+        return self.data_dir / "demo"
+
+    @property
+    def demo_db_path(self) -> Path:
+        return self.demo_data_dir / "clarix_demo.db"
+
+    @property
+    def effective_data_dir(self) -> Path:
+        return self.demo_data_dir if self.demo_mode else self.data_dir
+
+    @property
     def workspace(self) -> Path:
         return self.data_dir / "workspace"
 
     @property
     def db_path(self) -> Path:
-        return self.data_dir / "clarix.db"
+        # Operational database (chat, voice, rag, agent runs) always uses real_db_path
+        return self.real_db_path
 
     @property
     def auth_enabled(self) -> bool:
@@ -113,10 +134,36 @@ class Settings:
                 import secrets
                 ephemeral = secrets.token_hex(32)
                 tokens[ephemeral] = "ephemeral-operator"
+        root_dir = Path(__file__).resolve().parents[2]
+        raw_data = e.get("CLARIX_DATA_DIR", "./data")
+        raw_p = Path(raw_data)
+        if raw_p.is_absolute():
+            resolved_data = raw_p
+        elif (root_dir / raw_data).exists():
+            resolved_data = (root_dir / raw_data).resolve()
+        elif (Path.cwd() / raw_data).exists():
+            resolved_data = (Path.cwd() / raw_data).resolve()
+        else:
+            resolved_data = (root_dir / raw_data).resolve()
+
+        raw_whisper = e.get("CLARIX_WHISPER_MODEL_DIR", "./models/whisper")
+        p_whisper = Path(raw_whisper)
+        if not p_whisper.is_absolute() and (root_dir / raw_whisper).exists():
+            resolved_whisper = (root_dir / raw_whisper).resolve()
+        else:
+            resolved_whisper = p_whisper
+
+        raw_tts = e.get("CLARIX_TTS_VOICE_DIR", "./models/piper")
+        p_tts = Path(raw_tts)
+        if not p_tts.is_absolute() and (root_dir / raw_tts).exists():
+            resolved_tts = (root_dir / raw_tts).resolve()
+        else:
+            resolved_tts = p_tts
+
         s = cls(
             host=host,
             port=int(e.get("CLARIX_PORT", "8000")),
-            data_dir=Path(e.get("CLARIX_DATA_DIR", "./data")),
+            data_dir=resolved_data,
             ollama_url=e.get("CLARIX_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/"),
             default_model=e.get("CLARIX_DEFAULT_MODEL", "llama3"),
             embed_model=e.get("CLARIX_EMBED_MODEL", "nomic-embed-text"),
@@ -134,11 +181,11 @@ class Settings:
             rag_min_score_neural=float(e.get("CLARIX_RAG_MIN_SCORE_NEURAL", "0.30")),
             rag_min_score_lexical=float(e.get("CLARIX_RAG_MIN_SCORE_LEXICAL", "0.10")),
             integrity_mode=e.get("CLARIX_INTEGRITY_MODE", "enforce").strip().lower(),
-            whisper_model_dir=Path(e.get("CLARIX_WHISPER_MODEL_DIR", "./models/whisper")),
+            whisper_model_dir=resolved_whisper,
             whisper_model=e.get("CLARIX_WHISPER_MODEL", "base").strip().lower(),
             whisper_language=e.get("CLARIX_WHISPER_LANGUAGE") or None,
             voice_enabled=_bool(e.get("CLARIX_VOICE_ENABLED"), True),
-            tts_voice_dir=Path(e.get("CLARIX_TTS_VOICE_DIR", "./models/piper")),
+            tts_voice_dir=resolved_tts,
             tts_voice=e.get("CLARIX_TTS_VOICE", "en_US-lessac-low").strip(),
             tts_engine=e.get("CLARIX_TTS_ENGINE", "piper").strip().lower(),
             tts_enabled=_bool(e.get("CLARIX_TTS_ENABLED"), True),

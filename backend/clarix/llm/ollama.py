@@ -84,16 +84,19 @@ class OllamaClient:
             return chat_models[0], f"Requested model '{wanted or default}' is not installed; used '{chat_models[0]}' instead."
         raise OllamaError("No chat model is installed in Ollama. Run `ollama pull qwen3:4b` (or copy a model onto this host).", 404)
 
-    def chat(self, model: str, messages: list[dict], *, temperature: float = 0.2, top_p: float = 0.9, num_predict: int = 768, timeout: float = 120) -> dict:
+    def chat(self, model: str, messages: list[dict], *, temperature: float = 0.2, top_p: float = 0.9, num_predict: int = 2048, timeout: float = 120) -> dict:
         body = {"model": model, "messages": messages, "stream": False, "think": False,  # skip long hidden reasoning (Qwen3 etc.)
                 "options": {"temperature": temperature, "top_p": top_p, "num_predict": num_predict}}
         try:
-            return self._req("POST", "/api/chat", body, timeout=timeout)
+            resp = self._req("POST", "/api/chat", body, timeout=timeout)
         except OllamaError as e:
             if e.status == 400 and "think" in str(e).lower():  # older/other models reject the flag: retry without it
                 body.pop("think")
-                return self._req("POST", "/api/chat", body, timeout=timeout)
-            raise
+                resp = self._req("POST", "/api/chat", body, timeout=timeout)
+            else:
+                raise
+        resp["truncated"] = (resp.get("done_reason") == "length")
+        return resp
 
     def embed(self, model: str, texts: list[str]) -> list[list[float]]:
         try:

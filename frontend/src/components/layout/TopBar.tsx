@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Bell, ShieldCheck, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { Bell, ShieldAlert, Sparkles, Database, ShieldCheck } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useConsole } from '../../state/ConsoleContext';
-import { auditService, type IntegrityStatus } from '../../services';
+import { auditService, config, type IntegrityStatus } from '../../services';
 import styles from './Layout.module.css';
 
 export function TopBar() {
-  const { settings, counts } = useConsole();
+  const { settings, counts, toast } = useConsole();
   const alerts = counts.pendingApprovals;
   const [integrity, setIntegrity] = useState<IntegrityStatus | null>(null);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -21,62 +22,144 @@ export function TopBar() {
       }
     };
     check();
-    const interval = setInterval(check, 5000);
+    const interval = setInterval(check, 2500);
+
+    const onDemoChanged = (ev: Event) => {
+      const detail = (ev as CustomEvent).detail;
+      if (mounted && detail) {
+        setIntegrity((prev) => prev ? { ...prev, ledger: detail.ledger, demoMode: detail.demoMode, dbPath: detail.dbPath, locked: detail.locked } : null);
+      }
+    };
+    window.addEventListener('clarix:demo_mode_changed', onDemoChanged);
+
     return () => {
       mounted = false;
       clearInterval(interval);
+      window.removeEventListener('clarix:demo_mode_changed', onDemoChanged);
     };
   }, []);
 
+  const isDemo = Boolean(integrity?.ledger === 'demo' || integrity?.demoMode);
+
+  const handleToggleDemo = async () => {
+    setToggling(true);
+    try {
+      const nextMode = !isDemo;
+      const res = await auditService.toggleDemoMode(nextMode);
+      setIntegrity((prev) => prev ? { ...prev, ledger: res.ledger, demoMode: res.demoMode, dbPath: res.dbPath, locked: res.locked } : null);
+      toast(res.demoMode ? 'Switched to Demo Mode (isolated sandbox ledger).' : 'Returned to Live Ledger (production files untouched).', 'green');
+      window.dispatchEvent(new CustomEvent('clarix:demo_mode_changed', { detail: res }));
+    } catch (e: any) {
+      toast(e?.message || 'Failed to switch demo mode', 'red');
+    } finally {
+      setToggling(false);
+    }
+  };
+
   return (
     <header className={styles.top}>
-      {settings.notifications && alerts > 0 && <NavLink to="/approvals" className={styles.bell} aria-label={`${alerts} approval${alerts > 1 ? 's' : ''} waiting`}><Bell width={14} height={14} />{alerts} approval{alerts > 1 ? 's' : ''} waiting</NavLink>}
-
-      {integrity && (
-        <NavLink
-          to="/audit"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '5px',
-            fontSize: '0.74rem',
-            fontWeight: 700,
-            padding: '3px 9px',
-            borderRadius: '4px',
-            textDecoration: 'none',
-            letterSpacing: '0.03em',
-            ...(integrity.locked
-              ? { backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444' }
-              : integrity.status === 'WARN'
-              ? { backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid #f59e0b' }
-              : { backgroundColor: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }),
-          }}
-          title={
-            integrity.locked
-              ? `System locked: ${integrity.reason || 'Cryptographic tamper detected'}`
-              : `Cryptographic hash chain & state verified (${integrity.last_checked_seconds_ago ?? 0}s ago)`
-          }
-        >
-          {integrity.locked ? (
-            <>
-              <ShieldAlert width={13} height={13} />
-              <span>SYSTEM LOCKED</span>
-            </>
-          ) : integrity.status === 'WARN' ? (
-            <>
-              <AlertTriangle width={13} height={13} />
-              <span>INTEGRITY WARN</span>
-            </>
-          ) : (
-            <>
-              <ShieldCheck width={13} height={13} />
-              <span>INTEGRITY VERIFIED</span>
-            </>
-          )}
+      {settings.notifications && alerts > 0 && (
+        <NavLink to="/approvals" className={styles.bell} aria-label={`${alerts} approval${alerts > 1 ? 's' : ''} waiting`}>
+          <Bell width={14} height={14} />{alerts} approval{alerts > 1 ? 's' : ''} waiting
         </NavLink>
       )}
 
-      <span className={styles.demo} title="All figures in this console are mock data until the backend is connected."><i />SIMULATED DATA</span>
+      {integrity && (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          {integrity.locked ? (
+            <NavLink
+              to="/audit"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.74rem',
+                fontWeight: 800,
+                padding: '3px 10px',
+                borderRadius: '6px',
+                textDecoration: 'none',
+                backgroundColor: 'rgba(239, 68, 68, 0.22)',
+                color: '#ef4444',
+                border: '1.5px solid #ef4444',
+                letterSpacing: '0.04em',
+              }}
+              title={`System locked: ${integrity.reason || 'Cryptographic tamper detected'}`}
+            >
+              <ShieldAlert width={14} height={14} />
+              <span>SYSTEM LOCKED</span>
+            </NavLink>
+          ) : isDemo ? (
+            <NavLink
+              to="/audit"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                padding: '3px 10px',
+                borderRadius: '6px',
+                textDecoration: 'none',
+                backgroundColor: 'rgba(245, 158, 11, 0.16)',
+                color: '#d97706',
+                border: '1px solid rgba(245, 158, 11, 0.45)',
+                letterSpacing: '0.02em',
+              }}
+              title={`Isolated Demo Ledger active: ${integrity.dbPath || 'data/demo/clarix_demo.db'}`}
+            >
+              <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#d97706', boxShadow: '0 0 6px #d97706' }} />
+              <span>DEMO MODE · sandbox ledger</span>
+            </NavLink>
+          ) : (
+            <NavLink
+              to="/audit"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                padding: '3px 10px',
+                borderRadius: '6px',
+                textDecoration: 'none',
+                backgroundColor: 'rgba(16, 185, 129, 0.14)',
+                color: '#059669',
+                border: '1px solid rgba(16, 185, 129, 0.45)',
+                letterSpacing: '0.02em',
+              }}
+              title={`Live Production Ledger active: ${integrity.dbPath || 'data/clarix.db'}`}
+            >
+              <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#059669', boxShadow: '0 0 6px #059669' }} />
+              <span>LIVE LEDGER</span>
+            </NavLink>
+          )}
+
+          <button
+            type="button"
+            className="cx-btn cx-btn--ghost cx-btn--xs"
+            onClick={handleToggleDemo}
+            disabled={toggling}
+            style={{
+              fontSize: '0.70rem',
+              fontWeight: 700,
+              padding: '2px 8px',
+              borderRadius: '5px',
+              border: isDemo ? '1px solid #d97706' : '1px solid #cbd5e1',
+              color: isDemo ? '#b45309' : '#1e293b',
+              backgroundColor: isDemo ? 'rgba(254, 243, 199, 0.8)' : '#ffffff',
+            }}
+            title={isDemo ? 'Exit Demo Mode and return to untouched production ledger' : 'Enter Demo Mode to test attacks in safe sandbox'}
+          >
+            {toggling ? 'Switching…' : isDemo ? 'Exit Demo Mode' : 'Enter Demo Mode'}
+          </button>
+        </div>
+      )}
+
+      {config.useMocks && (
+        <span className={styles.demo} title="All figures in this console are mock data until the backend is connected.">
+          <i />SIMULATED DATA
+        </span>
+      )}
       <nav className={styles.links} aria-label="Quick links">
         <NavLink to="/overview">Overview ↗</NavLink>
         <NavLink to="/policies">Policies ↗</NavLink>

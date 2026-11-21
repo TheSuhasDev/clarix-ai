@@ -7,7 +7,7 @@ from pathlib import Path
 from ..audit import AuditLog
 from ..classification import norm_class
 from ..db import Database
-from ..errors import ApiError, bad_request, unavailable
+from ..errors import ApiError, bad_request, not_found, unavailable
 from ..llm.ollama import OllamaError, OllamaUnavailable
 from ..security import injection
 from ..util import utcstamp
@@ -94,7 +94,43 @@ class RagStore:
                           risk="MEDIUM" if any(flags) else "LOW", decision="ALLOW", classification=cls, payload=f"rag:ingest:{name}:{hashlib.sha256(data).hexdigest()[:16]}")
         return next(d for d in self.documents() if d["name"] == name)
 
-    def search(self, query: str, k: int = 5) -> list[dict]:
+    def delete_document(self, name: str, actor: str = "operator") -> dict:
+        base = safe_name(name)
+        existing = self.db.one("SELECT * FROM rag_documents WHERE name=?", (base,))
+        if not existing:
+            raise not_found(f"Document '{base}' not found")
+        with self.db.tx() as c:
+            c.execute("DELETE FROM rag_chunks WHERE doc_name=?", (base,))
+            c.execute("DELETE FROM rag_documents WHERE name=?", (base,))
+        doc_file = self.workspace / base
+        if doc_file.exists():
+            try:
+                doc_file.unlink()
+            except OSError:
+                pass
+        self.audit.append(user=actor, action=f"Document deleted: {base}", component="Local RAG",
+                          risk="LOW", decision="ALLOW", classification=existing["classification"] if existing else "INTERNAL",
+                          payload=f"rag:delete:{base}")
+        return {"ok": True, "deleted": base}
+
+    def get_document_chunks(self, name: str, max_chars: int = 25000, max_chunks: int = 40) -> list[dict]:
+        base = safe_name(name)
+        rows = self.db.q("SELECT c.id, c.doc_name, c.page, c.text, d.classification "
+                         "FROM rag_chunks c JOIN rag_documents d ON d.name=c.doc_name "
+                         "WHERE c.doc_name=? AND c.flagged=0 ORDER BY c.id ASC", (base,))
+        chunks: list[dict] = []
+        total_len = 0
+        for r in rows:
+            if len(chunks) >= max_chunks or (total_len + len(r["text"]) > max_chars and chunks):
+                break
+            ch = {"id": r["id"], "doc": r["doc_name"], "page": r["page"], "text": r["text"],
+                  "classification": r["classification"], "score": 1.0}
+            ch.update(self.locator(ch["doc"], ch["page"], ch["id"]))
+            chunks.append(ch)
+            total_len += len(r["text"])
+        return chunks
+
+    def search(self, query: str, k: int = 5, doc_names: list[str] | None = None) -> list[dict]:
         q = (query or "").strip()
         if not q:
             raise bad_request("Query is empty")
@@ -105,8 +141,13 @@ class RagStore:
                 qv = self.embedder.embed_query(q[:2000], model)
             except (OllamaUnavailable, OllamaError):
                 continue
-            rows = self.db.q("SELECT c.id, c.doc_name, c.page, c.text, c.embedding, d.classification FROM rag_chunks c JOIN rag_documents d ON d.name=c.doc_name"
-                             " WHERE c.flagged=0 AND d.embedding_model=?", (model,))
+            if doc_names:
+                placeholders = ",".join("?" for _ in doc_names)
+                rows = self.db.q(f"SELECT c.id, c.doc_name, c.page, c.text, c.embedding, d.classification FROM rag_chunks c JOIN rag_documents d ON d.name=c.doc_name"
+                                 f" WHERE c.flagged=0 AND d.embedding_model=? AND c.doc_name IN ({placeholders})", (model, *doc_names))
+            else:
+                rows = self.db.q("SELECT c.id, c.doc_name, c.page, c.text, c.embedding, d.classification FROM rag_chunks c JOIN rag_documents d ON d.name=c.doc_name"
+                                 " WHERE c.flagged=0 AND d.embedding_model=?", (model,))
             for r in rows:
                 s = cosine(qv, unpack(r["embedding"]))
                 scored.append({"id": r["id"], "doc": r["doc_name"], "page": r["page"], "score": round(max(0.0, min(1.0, s)), 4),

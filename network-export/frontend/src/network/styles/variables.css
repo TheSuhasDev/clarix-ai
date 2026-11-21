@@ -1,0 +1,78 @@
+:root {
+  /* Clarix Assets Theme Core Palette - Neutralized for inline host embedding */
+  --bg: transparent;
+  --bg-app-shell: transparent;
+  --bg-workspace: transparent;
+  --bg-soft-white: transparent;
+  --bg-pure-white: #ffffff;
+
+  /* Ink & Typography */
+  --ink: #0a0b10;
+  --mute: #586073;
+  --text-primary: #0a0b10;
+  --text-secondary: #586073;
+  --text-muted: #7a8298;
+  --text-dim: #9aa2b8;
+
+  /* Accents */
+  --accent: #e4285a;
+  --accent-pink: #e4285a;
+  --accent-blue: #3b6bff;
+  --accent-cyan: #00d9f5;
+  --accent-aqua: #65e7ff;
+  --accent-violet: #8174ff;
+  --accent-lavender: #c5b9ff;
+
+  /* Gradients from assets theme */
+  --gradient-primary: linear-gradient(135deg, #3b6bff 0%, #00d9f5 100%);
+  --gradient-accent: linear-gradient(90deg, #3b6bff 0%, #e4285a 100%);
+  --gradient-glass: linear-gradient(120deg, rgba(255, 225, 238, 0.65) 0%, rgba(218, 230, 255, 0.7) 55%, rgba(218, 246, 255, 0.65) 100%);
+  --gradient-specular: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 100%);
+
+  /* Liquid Glass Panels */
+  --glass-primary: linear-gradient(120deg, rgba(255, 235, 245, 0.72) 0%, rgba(225, 236, 255, 0.75) 55%, rgba(225, 248, 255, 0.72) 100%);
+  --glass-secondary: rgba(255, 255, 255, 0.55);
+  --glass-floating: rgba(255, 255, 255, 0.88);
+  --glass-interactive: rgba(255, 255, 255, 0.65);
+  --glass-interactive-hover: rgba(255, 255, 255, 0.95);
+  --glass-highlight: linear-gradient(135deg, rgba(59, 107, 255, 0.08) 0%, rgba(228, 40, 90, 0.08) 100%);
+  --glass-card: rgba(255, 255, 255, 0.75);
+  --glass-card-hover: rgba(255, 255, 255, 0.92);
+
+  /* Glass Borders */
+  --border-glass-subtle: rgba(255, 255, 255, 0.7);
+  --border-glass-crisp: rgba(255, 255, 255, 0.95);
+  --border-glass-accent: rgba(59, 107, 255, 0.22);
+  --border-panel: rgba(70, 70, 140, 0.15);
+
+  /* Status Colors */
+  --status-healthy: #16c784;
+  --status-healthy-bg: rgba(22, 199, 132, 0.12);
+  --status-warning: #f4a62a;
+  --status-warning-bg: rgba(244, 166, 42, 0.12);
+  --status-critical: #e4285a;
+  --status-critical-bg: rgba(228, 40, 90, 0.12);
+
+  /* Shadows */
+  --shadow-glass-sm: 0 4px 16px rgba(90, 80, 200, 0.06), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+  --shadow-glass-md: 0 12px 36px rgba(90, 80, 200, 0.09), inset 0 1px 2px rgba(255, 255, 255, 1);
+  --shadow-glass-lg: 0 24px 70px rgba(90, 80, 200, 0.14), inset 0 1px 2px rgba(255, 255, 255, 1);
+  --shadow-floating: 0 28px 80px rgba(90, 80, 200, 0.18), inset 0 1px 3px rgba(255, 255, 255, 1);
+
+  /* Radius */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-2xl: 30px;
+  --radius-full: 9999px;
+
+  /* Typography Fonts */
+  --font-sans: "Sofia Sans", -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+
+  /* Transitions */
+  --transition-fast: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}

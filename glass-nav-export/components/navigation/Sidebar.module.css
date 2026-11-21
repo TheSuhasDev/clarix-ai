@@ -1,0 +1,538 @@
+/* Floating Glassmorphic Collapsible Sidebar */
+.sidebar {
+  position: fixed;
+  z-index: var(--z-sidebar, 35);
+  top: 16px;
+  bottom: 16px;
+  left: 16px;
+  height: calc(100vh - 32px);
+  width: var(--sidebar-w-expanded, 220px);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--glass-text);
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 28px;
+  box-shadow: var(--glass-shadow);
+  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  user-select: none;
+  overflow: hidden;
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-w-collapsed, 76px);
+}
+
+/* Header */
+.top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  margin-bottom: 8px;
+  flex: none;
+  width: 100%;
+  position: relative;
+}
+
+.logoBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  outline: none;
+  border-radius: 14px;
+  color: inherit;
+  flex: 1;
+  min-width: 0;
+}
+
+.logoBtn:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+
+.mark {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(16, 207, 224, 0.95), rgba(37, 99, 255, 0.95));
+  box-shadow: 0 6px 16px rgba(16, 207, 224, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  color: #ffffff;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.logoBtn:hover .mark,
+.top:hover .mark {
+  transform: scale(1.05);
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--glass-text);
+  font-family: var(--font-sans);
+  letter-spacing: 0.02em;
+  transition: opacity 0.25s ease;
+}
+
+.chev {
+  margin-left: auto;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-hover);
+  color: var(--glass-text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+  outline: none;
+}
+
+.chev:hover {
+  background: var(--glass-active);
+  transform: scale(1.08);
+}
+
+.chev:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.sidebar.collapsed .chev,
+.sidebar.collapsed .brand {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+/* Scrollable items list (hidden scrollbar) */
+.list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0px,
+    black 16px,
+    black calc(100% - 16px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0px,
+    black 16px,
+    black calc(100% - 16px),
+    transparent 100%
+  );
+}
+
+.list::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Grouping / Sections */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sectionLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--glass-text-muted);
+  padding: 10px 14px 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.25s ease;
+}
+
+.divider {
+  display: none;
+  height: 1px;
+  background: var(--glass-border);
+  margin: 6px 8px;
+}
+
+.sidebar.collapsed .sectionLabel {
+  display: none;
+}
+
+.sidebar.collapsed .divider {
+  display: block;
+}
+
+/* Single sliding active glass highlight pill */
+.hl {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 46px;
+  border-radius: 16px;
+  background: var(--glass-active);
+  border: 1px solid var(--glass-border-active);
+  box-shadow: var(--glass-hl-shadow);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              border-radius 0.3s ease,
+              opacity 0.25s ease;
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform, width, height;
+  opacity: 0;
+}
+
+/* Green/cyan accent bar INSIDE the highlight pill */
+.hl::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--glass-glow);
+  box-shadow: 0 0 10px var(--glass-glow-shadow);
+}
+
+/* Nav rows: strictly 46px fixed height */
+.row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 46px;
+  flex: 0 0 46px;
+  padding: 0 13px;
+  border: 0;
+  background: none;
+  color: var(--glass-text-muted);
+  font: 600 15px var(--font-sans);
+  border-radius: 16px;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color 0.2s ease, background 0.2s ease;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.row:hover:not([aria-current="page"]) {
+  background: var(--glass-hover);
+  color: var(--glass-text);
+}
+
+/* Active item: strong navy text & blue icon, NO extra background layer */
+.row[aria-current="page"] {
+  color: var(--glass-text-active);
+  font-weight: 700;
+  background: transparent !important;
+}
+
+.row[aria-current="page"] svg {
+  color: var(--blue);
+}
+
+/* Parent row active state: stronger text/icon color when a sub-item is active */
+.row.rowParentActive {
+  color: var(--glass-text-active);
+  font-weight: 600;
+}
+
+.row.rowParentActive svg {
+  color: var(--blue);
+}
+
+/* Parent accordion chevron */
+.parentChevron {
+  margin-left: auto;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--glass-text-muted);
+  opacity: 0.7;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, opacity 0.2s ease;
+  flex: none;
+}
+
+.parentChevronExpanded {
+  transform: rotate(180deg);
+  color: var(--glass-text-active);
+  opacity: 1;
+}
+
+.sidebar.collapsed .parentChevron {
+  display: none;
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.row svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.8;
+  color: inherit;
+}
+
+/* Icon with Status Dot */
+.iconWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.statusDot {
+  display: none;
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--glass-bg);
+}
+
+.sidebar.collapsed .statusDot {
+  display: block;
+}
+
+/* Row badges */
+.badge {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  line-height: 1.3;
+  transition: opacity 0.25s ease;
+}
+
+.sidebar.collapsed .badge {
+  display: none;
+}
+
+/* Badge Tones */
+.danger {
+  color: var(--badge-danger-text);
+  background: var(--badge-danger-bg);
+  border: 1px solid var(--badge-danger-border);
+}
+
+.success {
+  color: var(--badge-success-text);
+  background: var(--badge-success-bg);
+  border: 1px solid var(--badge-success-border);
+}
+
+.warning {
+  color: var(--badge-warning-text);
+  background: var(--badge-warning-bg);
+  border: 1px solid var(--badge-warning-border);
+}
+
+.info {
+  color: var(--badge-info-text);
+  background: var(--badge-info-bg);
+  border: 1px solid var(--badge-info-border);
+}
+
+.statusDot.danger {
+  background: var(--badge-danger-dot);
+  box-shadow: 0 0 6px var(--badge-danger-dot);
+}
+
+.statusDot.success {
+  background: var(--badge-success-dot);
+  box-shadow: 0 0 6px var(--badge-success-dot);
+}
+
+.statusDot.warning {
+  background: var(--badge-warning-dot);
+  box-shadow: 0 0 6px var(--badge-warning-dot);
+}
+
+.statusDot.info {
+  background: var(--badge-info-dot);
+  box-shadow: 0 0 6px var(--badge-info-dot);
+}
+
+.row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: opacity 0.25s ease, width 0.25s ease;
+}
+
+.sidebar.collapsed .row span {
+  opacity: 0;
+  width: 0;
+  pointer-events: none;
+}
+
+/* Sub-navigation accordion group */
+.subGroupWrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+  opacity: 0;
+}
+
+.subGroupWrapperOpen {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.subGroupInner {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 3px 0 3px 12px;
+  position: relative;
+}
+
+.subGroupInner::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--glass-border);
+}
+
+.sidebar.collapsed .subGroupWrapper {
+  display: none !important;
+}
+
+/* Sub-row item: indented, ~38px height */
+.subRow {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  flex: 0 0 38px;
+  padding: 0 10px 0 12px;
+  border: 0;
+  background: none;
+  color: var(--glass-text-muted);
+  font: 500 13.5px var(--font-sans);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color 0.2s ease, background 0.2s ease;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.subRow:hover:not([aria-current="page"]) {
+  background: var(--glass-hover);
+  color: var(--glass-text);
+}
+
+.subRow[aria-current="page"] {
+  color: var(--glass-text-active);
+  font-weight: 600;
+  background: transparent !important;
+}
+
+.subRow[aria-current="page"] svg {
+  color: var(--blue);
+}
+
+.subRow:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.subRow svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.8;
+  color: inherit;
+}
+
+.subRow span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pinned footer */
+.foot {
+  border-top: 1px solid var(--glass-border);
+  padding-top: 8px;
+  margin-top: auto;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Accessibility: Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .hl,
+  .chev,
+  .brand,
+  .row,
+  .row span,
+  .mark,
+  .subGroupWrapper,
+  .parentChevron,
+  .subRow {
+    transition: none !important;
+  }
+}

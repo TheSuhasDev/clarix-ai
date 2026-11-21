@@ -1,0 +1,35 @@
+{
+  "name": "clarix-ai-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:network-backend": "cd ../network-service && .venv/bin/uvicorn networkops.main:app --host 127.0.0.1 --port 8080 --reload",
+    "dev:network": "concurrently -n \"fe,net-be\" -c \"cyan,magenta\" \"npm run dev\" \"npm run dev:network-backend\"",
+    "dev:all": "concurrently -n \"fe,clarix-be,net-be\" -c \"cyan,blue,magenta\" \"npm run dev\" \"cd ../backend && .venv/bin/uvicorn clarix.app:create_app --factory --host 127.0.0.1 --port 8000 --reload\" \"npm run dev:network-backend\"",
+    "setup:network": "cd ../network-service && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt",
+    "typecheck": "tsc -b --noEmit",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.0.0",
+    "@fontsource/sofia-sans": "^5.0.0",
+    "lucide-react": "^0.460.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "reactflow": "^11.11.4",
+    "recharts": "^2.13.3"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^10.0.7",
+    "postcss-prefix-selector": "^2.2.1",
+    "typescript": "~5.6.3",
+    "vite": "^5.4.11"
+  }
+}

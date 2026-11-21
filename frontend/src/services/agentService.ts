@@ -13,8 +13,8 @@ export const agentService = {
    * The backend runs prompt-injection scan -> policy -> RAG -> Ollama -> output sanitiser,
    * and returns the final text plus the pipeline trace. Nothing below is real inference.
    */
-  async send(message: string, model: string, sessionId?: string): Promise<ChatMessage> {
-    if (!config.useMocks) return request<ChatMessage>('/api/agent/chat', { method: 'POST', body: JSON.stringify({ message, model, sessionId }) }, 130000);
+  async send(message: string, model: string, sessionId?: string, documentIds?: string[]): Promise<ChatMessage> {
+    if (!config.useMocks) return request<ChatMessage>('/api/agent/chat', { method: 'POST', body: JSON.stringify({ message, model, sessionId, documentIds }) }, 130000);
     if (isCommand(message)) return mock(() => mockRagCommand(message), 350);
     const v = demoClassify(message);
     const reqId = `REQ-2026-${String(req++).padStart(5, '0')}`;

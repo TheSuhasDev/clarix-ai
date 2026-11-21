@@ -177,9 +177,9 @@ def _decoded_b64(text: str) -> list[str]:
 
 def _guess_classification(text: str) -> str:
     low = text.lower()
-    if re.search(r"\b(restricted|top secret|classified)\b", low):
+    if re.search(r"\b(top secret|classified document|classified project|restricted clearance|restricted access)\b", low):
         return "RESTRICTED"
-    if re.search(r"\b(confidential|financial|secret|payroll|salary|credential|password)\b", low):
+    if re.search(r"\b(confidential password|financial record|payroll database|master credential|secret key)\b", low):
         return "CONFIDENTIAL"
     return "INTERNAL"
 
@@ -221,8 +221,9 @@ def scan(text: str, trust: str = "USER") -> Verdict:
     reason = ("Hidden base64 payload contains injection patterns." if enc_hit
               else top.reason if top else "No suspicious patterns matched by the heuristic detector.")
     decision = "BLOCK" if score >= BLOCK_AT else "REQUIRE_APPROVAL" if score >= REVIEW_AT else "ALLOW"
+    cls = "INTERNAL" if (not hits and not enc_hit) else _guess_classification(text)
     return Verdict(category=category, risk=score, decision=decision, risk_label=_label(score), reason=reason,
-                   matched=sorted(hits), trust=trust, classification=_guess_classification(text), obfuscated=obf)
+                   matched=sorted(hits), trust=trust, classification=cls, obfuscated=obf)
 
 
 __all__ = ["scan", "Verdict", "BLOCK_AT", "REVIEW_AT", "MAX_INPUT", "CLASSES", "max_class"]

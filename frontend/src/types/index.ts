@@ -174,6 +174,10 @@ export interface ChatMessage {
     sources?: SourceRef[];
     command?: string;
     attribution?: { sentences: number; cited: number; weaklySupported: number; method: string };
+    truncated?: boolean;
+    reasoning?: string;
+    error?: boolean;
+    rawPrompt?: string;
   };
 }
 

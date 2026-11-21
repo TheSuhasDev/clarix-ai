@@ -10,6 +10,7 @@ export function SystemLockedOverlay() {
   const [locked, setLocked] = useState(false);
   const [reason, setReason] = useState('');
   const [evidence, setEvidence] = useState('');
+  const [detectedAt, setDetectedAt] = useState<string>('');
   const [dismissed, setDismissed] = useState(false);
 
   // Recovery modal state
@@ -17,6 +18,7 @@ export function SystemLockedOverlay() {
   const [mode, setMode] = useState<'restore_snapshot' | 'rebaseline'>('rebaseline');
   const [recReason, setRecReason] = useState('');
   const [confirmation, setConfirmation] = useState('');
+  const [adminToken, setAdminToken] = useState('admin-token-demo');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -28,6 +30,7 @@ export function SystemLockedOverlay() {
         setLocked(true);
         if (st.reason) setReason(st.reason);
         if (st.evidence) setEvidence(st.evidence);
+        if (st.last_checked) setDetectedAt(st.last_checked);
       } else {
         setLocked(false);
         setDismissed(false);
@@ -39,7 +42,8 @@ export function SystemLockedOverlay() {
 
   useEffect(() => {
     refreshStatus();
-    const timer = setInterval(refreshStatus, 4000);
+    // Poll fast: 2.5s matching backend checker
+    const timer = setInterval(refreshStatus, 2500);
 
     const onLockedEvent = (ev: Event) => {
       const detail = (ev as CustomEvent).detail;
@@ -47,6 +51,7 @@ export function SystemLockedOverlay() {
       setDismissed(false);
       if (detail?.reason) setReason(detail.reason);
       if (detail?.evidence) setEvidence(detail.evidence);
+      setDetectedAt(new Date().toLocaleTimeString());
     };
 
     window.addEventListener('clarix:system_locked', onLockedEvent);
@@ -58,8 +63,9 @@ export function SystemLockedOverlay() {
 
   async function handleRecover() {
     setErrorMsg('');
-    if (!recReason.trim() || recReason.trim().length < 8) {
-      setErrorMsg('A detailed reason of at least 8 characters is required.');
+    const trimmedReason = recReason.trim();
+    if (!trimmedReason || trimmedReason.length < 20) {
+      setErrorMsg(`A detailed security justification of at least 20 characters is mandatory. Current length: ${trimmedReason.length}`);
       return;
     }
     if (mode === 'rebaseline' && confirmation.trim() !== REBASELINE_PHRASE) {
@@ -69,7 +75,7 @@ export function SystemLockedOverlay() {
 
     setSubmitting(true);
     try {
-      await auditService.recoverIntegrity(mode, recReason.trim(), confirmation.trim());
+      await auditService.recoverIntegrity(mode, trimmedReason, confirmation.trim());
       toast('System unlocked and integrity rebaselined successfully.', 'green');
       setRecoverModalOpen(false);
       setLocked(false);
@@ -109,16 +115,16 @@ export function SystemLockedOverlay() {
     >
       <div
         style={{
-          maxWidth: '720px',
+          maxWidth: '760px',
           width: '100%',
           backgroundColor: '#1b0808',
           border: '2px solid #ef4444',
           borderRadius: '12px',
-          padding: '32px',
-          boxShadow: '0 25px 50px -12px rgba(239, 68, 68, 0.4)',
+          padding: '30px',
+          boxShadow: '0 25px 50px -12px rgba(239, 68, 68, 0.5)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
           <div
             style={{
               width: '56px',
@@ -129,6 +135,7 @@ export function SystemLockedOverlay() {
               alignItems: 'center',
               justifyContent: 'center',
               border: '2px solid #ef4444',
+              flexShrink: 0,
             }}
           >
             <ShieldAlert width={32} height={32} color="#ef4444" />
@@ -150,25 +157,30 @@ export function SystemLockedOverlay() {
                 FAIL-CLOSED ACTIVE
               </span>
               <span style={{ color: '#fca5a5', fontSize: '0.8rem', fontWeight: 600 }}>
-                POL-006 Cryptographic Lockdown
+                POL-006 Cryptographic Tamper Lockdown
               </span>
+              {detectedAt && (
+                <span style={{ color: '#94a3b8', fontSize: '0.74rem', marginLeft: 'auto' }}>
+                  Detected: {detectedAt}
+                </span>
+              )}
             </div>
             <h2 id="lockdown-title" style={{ margin: '6px 0 0 0', fontSize: '1.45rem', fontWeight: 700, color: '#fef2f2' }}>
-              SYSTEM LOCKED — Tamper Detected
+              SYSTEM LOCKED — Unauthorized Modification Detected
             </h2>
           </div>
         </div>
 
-        <p style={{ color: '#fecaca', fontSize: '0.92rem', lineHeight: 1.5, margin: '0 0 18px 0' }}>
-          Clarix AI detected an unauthorized modification outside the official audited API path.
-          To protect classified documents and execution integrity, the system has entered <strong>fail-closed lockdown</strong>.
-          Agent chat, tool execution, approvals, document ingestion, and permission changes are blocked.
+        <p style={{ color: '#fecaca', fontSize: '0.9rem', lineHeight: 1.5, margin: '0 0 16px 0' }}>
+          Clarix AI cryptographic integrity monitoring detected an out-of-band modification bypassing the audited API.
+          Under security policy <strong>POL-006</strong>, the entire environment has entered <strong>fail-closed lockdown</strong> to prevent classified document exfiltration or compromised reasoning.
         </p>
 
+        {/* Plain English Explanation */}
         {reason && (
-          <div style={{ marginBottom: '14px' }}>
-            <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', color: '#fca5a5', fontWeight: 700, marginBottom: '4px' }}>
-              Detection Reason
+          <div style={{ marginBottom: '12px' }}>
+            <div style={{ fontSize: '0.76rem', textTransform: 'uppercase', color: '#fca5a5', fontWeight: 700, marginBottom: '4px' }}>
+              What was modified (Plain English):
             </div>
             <div style={{ backgroundColor: '#2d0a0a', border: '1px solid #7f1d1d', borderRadius: '6px', padding: '10px 14px', color: '#fee2e2', fontSize: '0.88rem', fontWeight: 600 }}>
               {reason}
@@ -176,24 +188,25 @@ export function SystemLockedOverlay() {
           </div>
         )}
 
+        {/* Expected vs Found Evidence */}
         {evidence && (
-          <div style={{ marginBottom: '22px' }}>
-            <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', color: '#fca5a5', fontWeight: 700, marginBottom: '4px' }}>
-              Cryptographic Tamper Evidence
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '0.76rem', textTransform: 'uppercase', color: '#fca5a5', fontWeight: 700, marginBottom: '4px' }}>
+              Cryptographic Tamper Evidence (Expected vs Found):
             </div>
             <pre
               style={{
                 backgroundColor: '#0f0202',
                 border: '1px solid #991b1b',
                 borderRadius: '6px',
-                padding: '12px',
+                padding: '10px 12px',
                 color: '#f87171',
-                fontSize: '0.82rem',
+                fontSize: '0.8rem',
                 fontFamily: 'ui-monospace, monospace',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-all',
                 margin: 0,
-                maxHeight: '140px',
+                maxHeight: '120px',
                 overflowY: 'auto',
               }}
             >
@@ -201,6 +214,32 @@ export function SystemLockedOverlay() {
             </pre>
           </div>
         )}
+
+        {/* Blocked Operations Summary */}
+        <div
+          style={{
+            backgroundColor: '#120404',
+            border: '1px solid #450a0a',
+            borderRadius: '6px',
+            padding: '10px 14px',
+            marginBottom: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+          }}
+        >
+          <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase' }}>
+            All High-Privilege & Execution Operations Suspended (HTTP 423 Locked):
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '6px', fontSize: '0.78rem', color: '#fca5a5' }}>
+            <div>🚫 Agent Chat & Reasoning</div>
+            <div>🚫 RAG Document Ingestion</div>
+            <div>🚫 Tool Sandbox Execution</div>
+            <div>🚫 Approval Resolutions</div>
+            <div>🚫 Policy / Permission Edits</div>
+            <div>🚫 Model Inference Loop</div>
+          </div>
+        </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: '1px solid #450a0a' }}>
           <button
@@ -237,7 +276,7 @@ export function SystemLockedOverlay() {
                 gap: '6px',
               }}
             >
-              <RefreshCw width={14} height={14} /> Re-check
+              <RefreshCw width={14} height={14} /> Re-check Integrity
             </button>
             <button
               type="button"
@@ -257,13 +296,13 @@ export function SystemLockedOverlay() {
                 boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
               }}
             >
-              <Key width={16} height={16} /> Recover System
+              <Key width={16} height={16} /> Start Recovery
             </button>
           </div>
         </div>
       </div>
 
-      {/* Recovery Modal */}
+      {/* Real Recovery Flow Modal */}
       {recoverModalOpen && (
         <div
           style={{
@@ -279,7 +318,7 @@ export function SystemLockedOverlay() {
         >
           <div
             style={{
-              maxWidth: '560px',
+              maxWidth: '580px',
               width: '100%',
               backgroundColor: '#18181b',
               border: '1px solid #3f3f46',
@@ -289,7 +328,12 @@ export function SystemLockedOverlay() {
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600 }}>System Integrity Recovery</h3>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600 }}>System Integrity Recovery</h3>
+                <span style={{ fontSize: '0.76rem', color: '#a1a1aa' }}>
+                  Authenticated procedure to restore integrity and log a permanent audit record
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={() => setRecoverModalOpen(false)}
@@ -316,7 +360,29 @@ export function SystemLockedOverlay() {
               </div>
             )}
 
-            <div style={{ marginBottom: '16px' }}>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#d4d4d8', marginBottom: '6px' }}>
+                Administrator Credential Token
+              </label>
+              <input
+                type="password"
+                value={adminToken}
+                onChange={(e) => setAdminToken(e.target.value)}
+                placeholder="Bearer admin token"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  backgroundColor: '#09090b',
+                  border: '1px solid #3f3f46',
+                  borderRadius: '6px',
+                  color: '#fff',
+                  padding: '8px 12px',
+                  fontSize: '0.84rem',
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#d4d4d8', marginBottom: '6px' }}>
                 Recovery Action
               </label>
@@ -379,20 +445,25 @@ export function SystemLockedOverlay() {
               </div>
             </div>
 
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#d4d4d8', marginBottom: '6px' }}>
-                Operator Justification / Incident Reason *
-              </label>
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label style={{ fontSize: '0.82rem', fontWeight: 600, color: '#d4d4d8' }}>
+                  Operator Justification / Incident Reason *
+                </label>
+                <span style={{ fontSize: '0.74rem', color: recReason.trim().length >= 20 ? '#10b981' : '#f87171' }}>
+                  {recReason.trim().length} / 20 min chars
+                </span>
+              </div>
               <textarea
                 value={recReason}
                 onChange={(e) => setRecReason(e.target.value)}
                 rows={3}
-                placeholder="Explain the security investigation and reason for recovery..."
+                placeholder="Explain the security investigation, incident resolution, and reason for unlocking system (min 20 chars)..."
                 style={{
                   width: '100%',
                   boxSizing: 'border-box',
                   backgroundColor: '#09090b',
-                  border: '1px solid #3f3f46',
+                  border: recReason.trim().length > 0 && recReason.trim().length < 20 ? '1px solid #ef4444' : '1px solid #3f3f46',
                   borderRadius: '6px',
                   color: '#fff',
                   padding: '8px 12px',
@@ -403,7 +474,7 @@ export function SystemLockedOverlay() {
             </div>
 
             {mode === 'rebaseline' && (
-              <div style={{ marginBottom: '20px' }}>
+              <div style={{ marginBottom: '18px' }}>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#fca5a5', marginBottom: '4px' }}>
                   Confirmation Phrase Required
                 </label>
@@ -448,17 +519,17 @@ export function SystemLockedOverlay() {
               </button>
               <button
                 type="button"
-                disabled={submitting}
+                disabled={submitting || recReason.trim().length < 20}
                 onClick={handleRecover}
                 style={{
-                  background: '#10b981',
+                  background: recReason.trim().length >= 20 ? '#10b981' : '#374151',
                   border: 'none',
                   color: '#fff',
                   padding: '8px 20px',
                   borderRadius: '6px',
                   fontSize: '0.85rem',
                   fontWeight: 600,
-                  cursor: submitting ? 'not-allowed' : 'pointer',
+                  cursor: submitting || recReason.trim().length < 20 ? 'not-allowed' : 'pointer',
                   opacity: submitting ? 0.7 : 1,
                   display: 'flex',
                   alignItems: 'center',

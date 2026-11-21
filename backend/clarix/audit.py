@@ -53,7 +53,7 @@ class AuditLog:
 
     def _find_upgrade_seq(self) -> int | None:
         try:
-            up = self.db.one("SELECT seq FROM audit_events WHERE action='CHAIN_UPGRADE' ORDER BY seq ASC LIMIT 1")
+            up = self.db.one("SELECT seq FROM audit_events WHERE action IN ('CHAIN_UPGRADE', 'SYSTEM_INSTALL') ORDER BY seq ASC LIMIT 1")
             return up["seq"] if up else None
         except Exception:
             return None
@@ -101,9 +101,13 @@ class AuditLog:
             canon = canonical_of(rec)
 
             # Determine whether to use HMAC or legacy SHA-256
+            if self._upgrade_seq is None:
+                self._upgrade_seq = self._find_upgrade_seq()
+            if action in ("CHAIN_UPGRADE", "SYSTEM_INSTALL") and self._upgrade_seq is None:
+                self._upgrade_seq = seq
+
             use_hmac = (self._key is not None) and (
-                action == "CHAIN_UPGRADE" or
-                (self._upgrade_seq is not None and seq >= self._upgrade_seq)
+                self._upgrade_seq is not None and seq >= self._upgrade_seq
             )
             h = chain_hash(prev, canon, self._key if use_hmac else None)
 

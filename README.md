@@ -263,6 +263,46 @@ In the AI Agent console, operators can use slash commands:
 
 ---
 
+## Competition Pre-Flight & Demo Preparation
+
+For live competition demonstrations, judges' interviews, or resetting to a clean state:
+
+### 1. Fresh Install (Clean Production Ledger)
+Archives any historical operational databases into `data/archive/<timestamp>/` and creates a fresh production ledger with 1 genesis event:
+```bash
+python -m clarix --fresh-install --confirm "I CONFIRM FRESH INSTALL"
+```
+*(Refuses execution if fail-closed lockdown is active or without exact confirmation phrase)*
+
+### 2. Isolated Demo Ledger & Out-of-Band Attack Simulation
+In demo mode (`CLARIX_DEMO_MODE=1`), Clarix maintains a strictly isolated demo database (`data/demo/clarix_demo.db`). The production ledger is never touched.
+
+Demonstrate direct out-of-band SQLite database attacks to judges:
+```bash
+# View events in demo ledger
+python tools/attack_demo.py --list
+
+# Smart attack: modify row decision (BLOCK -> ALLOW) and recompute downstream SHA-256 chain
+python tools/attack_demo.py --edit-row 14 --rehash
+
+# Legacy verifier reports VALID (unkeyed SHA-256 is blind to the rehash)
+python tools/attack_demo.py --legacy-verify
+
+# Observe Clarix UI trigger POL-006 FAIL-CLOSED LOCKDOWN within 2.5s (HMAC key mismatch)
+
+# Other attack vectors:
+python tools/attack_demo.py --truncate 3              # Truncate records (caught by external anchor)
+python tools/attack_demo.py --forge                   # Insert counterfeit row
+python tools/attack_demo.py --rollback                # Rollback to past snapshot
+python tools/attack_demo.py --permission shell NORMAL # Alter tool permissions directly in DB
+python tools/attack_demo.py --disable-policy POL-001  # Disable security policy in DB
+python tools/attack_demo.py --drop-trigger            # Drop SQLite append-only trigger
+```
+
+For complete step-by-step presentation procedures, see [`DEMO_CHECKLIST.md`](file:///c:/Users/suhas/Desktop/clarix-ai/DEMO_CHECKLIST.md).
+
+---
+
 ## Security Policies Reference
 
 | Policy ID | Policy Name | Description |

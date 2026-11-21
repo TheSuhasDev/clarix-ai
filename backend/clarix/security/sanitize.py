@@ -13,15 +13,68 @@ _PATTERNS = [
 ]
 _TOOL_LINE = re.compile(r"^\s*TOOL_CALL\b.*$", re.M)
 
+_TAG_BLOCKS = [
+    re.compile(r"<think>.*?</think>", re.S | re.I),
+    re.compile(r"<thought>.*?</thought>", re.S | re.I),
+    re.compile(r"<reasoning>.*?</reasoning>", re.S | re.I),
+]
+_UNCLOSED_TAGS = [
+    re.compile(r"<think>.*\Z", re.S | re.I),
+    re.compile(r"<thought>.*\Z", re.S | re.I),
+    re.compile(r"<reasoning>.*\Z", re.S | re.I),
+]
+_STRAY_CLOSING = [
+    re.compile(r"\A[\s\S]*?</think>\s*", re.I),
+    re.compile(r"\A[\s\S]*?</thought>\s*", re.I),
+    re.compile(r"\A[\s\S]*?</reasoning>\s*", re.I),
+]
+_PLAIN_THINK_PATTERNS = [
+    re.compile(
+        r"^(?:Thinking Process:|Here's a thinking process:|Okay,?\s+let's\s+tackle|Wait,?\s+the\s+system\s+says)[\s\S]*?(?=\n\n|\Z)\s*",
+        re.I,
+    ),
+]
 
-_THINK = re.compile(r"<think>.*?</think>", re.S | re.I)
-_THINK_OPEN = re.compile(r"<think>.*\Z", re.S | re.I)
+
+def extract_and_strip_thinking(text: str) -> tuple[str, str | None]:
+    """Extract stripped reasoning for optional debug inspection while returning clean answer."""
+    raw = text or ""
+    extracted: list[str] = []
+
+    # Extract tagged thoughts
+    for pat in _TAG_BLOCKS:
+        for m in pat.finditer(raw):
+            extracted.append(m.group(0))
+
+    out = raw
+    for pat in _TAG_BLOCKS:
+        out = pat.sub("", out)
+    for pat in _UNCLOSED_TAGS:
+        m = pat.search(out)
+        if m:
+            extracted.append(m.group(0))
+            out = pat.sub("", out)
+    for pat in _STRAY_CLOSING:
+        m = pat.match(out)
+        if m:
+            extracted.append(m.group(0))
+            out = pat.sub("", out)
+    for pat in _PLAIN_THINK_PATTERNS:
+        m = pat.match(out)
+        if m:
+            extracted.append(m.group(0))
+            out = pat.sub("", out)
+
+    reasoning = "\n\n".join(e.strip() for e in extracted if e.strip()) or None
+    return out.strip(), reasoning
 
 
 def strip_thinking(text: str) -> str:
-    """Remove <think>…</think> blocks (and an unterminated trailing one). Applied BEFORE tool-call parsing so
-    a TOOL_CALL written inside hidden reasoning can never execute, and reasoning is never shown to the user."""
-    return _THINK_OPEN.sub("", _THINK.sub("", text)).strip()
+    """Remove <think>…</think> blocks, unclosed think blocks, stray </think> tags, and plain text
+    reasoning monologue. Applied BEFORE tool-call parsing and sanitization so reasoning is never
+    shown to the user, audited, or executed."""
+    clean, _ = extract_and_strip_thinking(text)
+    return clean
 
 
 def sanitize(text: str) -> tuple[str, list[str]]:

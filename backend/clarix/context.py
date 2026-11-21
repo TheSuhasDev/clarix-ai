@@ -37,10 +37,10 @@ log = logging.getLogger("clarix")
 class Context:
     def __init__(self, settings: Settings, install_guard: bool = True, db: Database | None = None):
         self.settings = settings
-        settings.data_dir.mkdir(parents=True, exist_ok=True)
+        settings.effective_data_dir.mkdir(parents=True, exist_ok=True)
         settings.workspace.mkdir(parents=True, exist_ok=True)
         self.db = db or Database(settings.db_path)
-        self.crypto = CryptoStorage(settings.data_dir)
+        self.crypto = CryptoStorage(settings.effective_data_dir)
         self.graph = KnowledgeGraph(self.db)
         self.verifier = EvidenceVerificationEngine(max_retries=1)
         self.intent = IntentClassifier()

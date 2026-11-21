@@ -10,7 +10,25 @@
 @keyframes robotIn { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 900px) { .robot { opacity: .4; transform: none; -webkit-mask-image: none; mask-image: none; } }
 
-.top { position: fixed; z-index: var(--z-top); left: 0; right: 0; top: 0; display: flex; justify-content: flex-end; align-items: center; gap: 1.2rem; padding: calc(1.15rem + env(safe-area-inset-top, 0px)) clamp(1rem, 2.4vw, 2.4rem) 0; pointer-events: none; }
+.top {
+  position: fixed;
+  z-index: var(--z-top);
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--header-h);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 0 clamp(1rem, 2.4vw, 2.4rem);
+  background: rgba(238, 244, 252, 0.97);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(53, 92, 154, 0.14);
+  box-shadow: 0 4px 24px rgba(25, 45, 80, 0.05);
+  pointer-events: none;
+}
 .top > * { pointer-events: auto; }
 .links { display: flex; gap: 1.4rem; font: 600 .66rem var(--font-sans); letter-spacing: .07em; text-transform: uppercase; }
 .links a { transition: opacity .2s; }

@@ -56,7 +56,7 @@ class IntegrityLockdownTests(Env):
         super().setUp()
         from dataclasses import replace
         self.ctx.close()
-        self.settings = replace(self.settings, demo_mode=True, integrity_mode="enforce")
+        self.settings = replace(self.settings, demo_mode=False, demo_endpoints=True, integrity_mode="enforce")
         self.ctx = Context(self.settings, install_guard=True)
         self.ctx.start()
 
@@ -228,7 +228,7 @@ class IntegrityLockdownTests(Env):
         for atk in attacks:
             # Unlock before testing attack
             if self.ctx.integrity.is_locked():
-                self.ctx.integrity.recover("restore_snapshot", "Reset for next test", operator="admin")
+                self.ctx.integrity.recover("restore_snapshot", "Reset state for next test scenario execution", operator="admin")
             self.assertFalse(self.ctx.integrity.is_locked(), f"Failed to reset before {atk}")
 
             # Trigger demo tamper

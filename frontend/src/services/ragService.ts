@@ -23,6 +23,14 @@ export const ragService = {
     db.addAudit({ user: 'operator', action: 'Document Ingestion (simulated)', component: 'Local RAG', risk: 'LOW', decision: 'ALLOW', classification, payload: `rag:ingest:${name}` });
     return mock(() => doc, 900);
   },
+  /** BACKEND: DELETE /api/rag/documents/{name} */
+  async delete(name: string): Promise<{ ok: boolean; deleted: string }> {
+    const docName = encodeURIComponent(name);
+    if (!config.useMocks) return request(`/api/rag/documents/${docName}`, { method: 'DELETE' });
+    const idx = db.ragDocuments.findIndex((d) => d.name === name);
+    if (idx !== -1) db.ragDocuments.splice(idx, 1);
+    return mock(() => ({ ok: true, deleted: name }), 200);
+  },
   /** BACKEND: POST /api/rag/query { q }. Mock mode ranks canned chunks by keyword overlap. */
   async query(q: string): Promise<RagChunk[]> {
     if (!config.useMocks) return request('/api/rag/query', { method: 'POST', body: JSON.stringify({ q }) }, 60000);

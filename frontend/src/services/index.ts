@@ -7,7 +7,7 @@ export { approvalService } from './approvalService';
 export { ragService } from './ragService';
 export { ollamaService } from './ollamaService';
 export { auditService } from './auditService';
-export type { IntegrityStatus, IntegrityIncident } from './auditService';
+export type { IntegrityStatus, IntegrityIncident, VerifierComparison } from './auditService';
 export { healthService } from './healthService';
 export { voiceService } from './voiceService';
 export type { TranscriptionResponse } from './voiceService';

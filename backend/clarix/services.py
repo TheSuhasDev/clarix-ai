@@ -111,7 +111,11 @@ def agent_chat(ctx, req):
     sid = b.get("sessionId")
     if sid is not None and not (isinstance(sid, str) and _SESSION.match(sid)):
         raise bad_request("'sessionId' must be 8-64 letters, digits, '-' or '_'")
-    return ctx.agent.chat(_str(b, "message", 4000), (b.get("model") if isinstance(b.get("model"), str) else None), req.operator, sid)
+    doc_ids = b.get("documentIds")
+    if doc_ids is not None:
+        if not isinstance(doc_ids, list) or not all(isinstance(x, str) for x in doc_ids):
+            raise bad_request("'documentIds' must be a list of document strings")
+    return ctx.agent.chat(_str(b, "message", 4000), (b.get("model") if isinstance(b.get("model"), str) else None), req.operator, sid, document_ids=doc_ids)
 
 
 def threats(ctx, req):
@@ -239,10 +243,19 @@ def approval_resolve(ctx, req):
 
 
 def approval_simulate(ctx, req):
-    if not ctx.settings.demo_endpoints:
-        raise not_found("Demo endpoints are disabled")
-    return ctx.approvals.create(action="Export audit ledger snapshot to external storage (demo request)", tool="Local Database", resource="/sandbox/db/ledger.sqlite",
-                                risk="CRITICAL", classification="RESTRICTED", requester="Agent Reasoning Core (demo)")
+    if not (ctx.integrity.demo_mode or getattr(ctx.settings, "demo_mode", False)):
+        raise forbidden("Demo approvals like 'Agent Reasoning Core (demo)' appear only in Demo Mode.", code="demo_mode_required")
+    from .approvals import Approvals, Grants
+    demo_grants = Grants(ctx.integrity.demo_db)
+    demo_approvals = Approvals(ctx.integrity.demo_db, ctx.integrity.demo_audit, ctx.settings.approval_timeout_s, demo_grants)
+    return demo_approvals.create(
+        action="Export audit ledger snapshot to external storage (demo request)",
+        tool="Local Database",
+        resource="/sandbox/db/ledger.sqlite",
+        risk="CRITICAL",
+        classification="RESTRICTED",
+        requester="Agent Reasoning Core (demo)"
+    )
 
 
 # --------------------------------------------------------------------------- RAG
@@ -262,6 +275,14 @@ def rag_ingest(ctx, req):
         if not data:
             raise bad_request("Send a multipart 'file' upload, or JSON with 'name', 'classification' and 'text'")
     res = ctx.rag.ingest(fname, data, cls, req.operator)
+    ctx.integrity.sign_security_state()
+    return res
+
+
+def rag_delete(ctx, req):
+    ctx.integrity.ensure_not_locked()
+    name = req.params["name"]
+    res = ctx.rag.delete_document(name, req.operator)
     ctx.integrity.sign_security_state()
     return res
 
@@ -354,17 +375,32 @@ def audit_list(ctx, req):
         limit = max(1, min(5000, int(req.query.get("limit", "1000"))))
     except ValueError:
         raise bad_request("limit must be an integer") from None
-    return ctx.audit.list(limit)
+    target_audit = ctx.integrity.active_audit
+    return target_audit.list(limit)
 
 
 def audit_verify(ctx, req):
     t = time.perf_counter()
-    r = ctx.audit.verify()
-    return {**r, "ms": int((time.perf_counter() - t) * 1000), "verifiedAt": utcstamp()}
+    target_audit = ctx.integrity.active_audit
+    r = target_audit.verify()
+    return {
+        **r,
+        "ms": int((time.perf_counter() - t) * 1000),
+        "verifiedAt": utcstamp(),
+        "ledger": "demo" if ctx.integrity.demo_mode else "live",
+        "dbPath": str(ctx.integrity.active_db_path),
+    }
 
 
 def audit_head(ctx, req):
-    return {**ctx.audit.head(), "note": "Record this hash somewhere an attacker with database access cannot reach (print it, sign it, copy it to write-once media). A chain without an external anchor can be rewritten wholesale."}
+    target_audit = ctx.integrity.active_audit
+    h = target_audit.head()
+    return {
+        **h,
+        "ledger": "demo" if ctx.integrity.demo_mode else "live",
+        "dbPath": str(ctx.integrity.active_db_path),
+        "note": "Record this hash somewhere an attacker with database access cannot reach (print it, sign it, copy it to write-once media). A chain without an external anchor can be rewritten wholesale."
+    }
 
 
 def health_view(ctx, req):
@@ -440,7 +476,11 @@ def voice_speak(ctx, req):
 
 # --------------------------------------------------------------------------- integrity
 def integrity_status(ctx, req):
-    return ctx.integrity.status()
+    res = ctx.integrity.status()
+    res["demoMode"] = bool(ctx.integrity.demo_mode)
+    res["ledger"] = "demo" if ctx.integrity.demo_mode else "live"
+    res["dbPath"] = str(ctx.integrity.active_db_path)
+    return res
 
 
 def integrity_incidents(ctx, req):
@@ -463,9 +503,39 @@ def integrity_export_anchor(ctx, req):
     return ctx.integrity.export_anchor()
 
 
+def integrity_compare_verifiers(ctx, req):
+    return ctx.integrity.compare_verifiers()
+
+
+def demo_mode_get(ctx, req):
+    h = ctx.integrity.active_audit.head()
+    return {
+        "ok": True,
+        "demoMode": bool(ctx.integrity.demo_mode),
+        "ledger": "demo" if ctx.integrity.demo_mode else "live",
+        "dbPath": str(ctx.integrity.active_db_path),
+        "count": ctx.integrity.active_audit.count(),
+        "head": h["hash"],
+        "locked": ctx.integrity.is_locked(),
+        "status": "LOCKED" if ctx.integrity.is_locked() else "VERIFIED"
+    }
+
+
+def demo_mode_toggle(ctx, req):
+    b = req.json() if req.body else {}
+    enabled = bool(b.get("enabled", True))
+    return ctx.integrity.set_demo_mode(enabled)
+
+
+def demo_reset(ctx, req):
+    if not (ctx.integrity.demo_mode or getattr(ctx.settings, "demo_mode", False) or getattr(ctx.settings, "demo_endpoints", False)):
+        raise forbidden("Demo reset is only available in Demo Mode", "demo_disabled")
+    return ctx.integrity.reset_demo()
+
+
 def demo_tamper(ctx, req):
-    if not getattr(ctx.settings, "demo_mode", False):
-        raise forbidden("Tamper simulation is only available when CLARIX_DEMO_MODE=1", "demo_disabled")
+    if not (ctx.integrity.demo_mode or getattr(ctx.settings, "demo_mode", False) or getattr(ctx.settings, "demo_endpoints", False)):
+        raise forbidden("Tamper simulation is only available in Demo Mode", "demo_disabled")
     b = req.json()
     attack = _str(b, "attack", 60)
     return ctx.integrity.demo_tamper(attack)
