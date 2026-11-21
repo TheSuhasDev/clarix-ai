@@ -12,3 +12,4 @@ export * from './ToastHost';
 export * from './CopyButton';
 export * from './Page';
 export * from './AuthModal';
+export * from './SystemLockedOverlay';

@@ -124,6 +124,7 @@ class Dispatcher:
     def __init__(self, ctx, routes: list[Route]):
         self.ctx, self.routes = ctx, routes
         self.limiter = RateLimiter(ctx.settings.rate_limit_per_min)
+        self.err_audit_limiter = RateLimiter(20)
 
     def __call__(self, req: Request) -> tuple[int, Any, dict]:
         try:
@@ -141,7 +142,27 @@ class Dispatcher:
             return 200, out, {}
         except ApiError as e:
             hdr = {"WWW-Authenticate": "Bearer"} if e.status == 401 else {}
-            return e.status, {"error": {"code": e.code, "message": e.message}}, hdr
+            err_body = {"code": e.code, "message": e.message}
+            if hasattr(e, "reason"):
+                err_body["reason"] = getattr(e, "reason")
+            if hasattr(e, "evidence"):
+                err_body["evidence"] = getattr(e, "evidence")
+
+            # Audit coverage: log 401, 403, 429 with rate-limiting
+            if e.status in (401, 403, 429):
+                key = f"{e.status}:{req.client}"
+                if self.err_audit_limiter.allow(key):
+                    try:
+                        actor = getattr(req, "operator", "anonymous") if e.status != 401 else "anonymous"
+                        act = f"HTTP {e.status} on {req.path}: {e.message[:120]}"
+                        self.ctx.audit.append(
+                            user=actor, action=act, component="API Gateway",
+                            risk="LOW" if e.status == 429 else "MEDIUM",
+                            decision="BLOCK", classification="INTERNAL", payload=f"err:{e.status}:{req.method}:{req.path}"
+                        )
+                    except Exception:
+                        pass
+            return e.status, {"error": err_body}, hdr
         except Exception:  # never leak internals to the client
             log.exception("Unhandled error for %s %s", req.method, req.path)
             return 500, {"error": {"code": "internal", "message": "Internal server error"}}, {}

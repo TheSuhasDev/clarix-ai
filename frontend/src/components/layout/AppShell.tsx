@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { ClarixNavigation } from '../navigation/ClarixNavigation';
-import { ToastHost, AuthModal } from '../common';
+import { ToastHost, AuthModal, SystemLockedOverlay } from '../common';
 import { ConsoleBackdrop } from './ConsoleBackdrop';
 import { TopBar } from './TopBar';
 import { ALL_NAV } from '../navigation/navItems';
@@ -28,6 +28,7 @@ export function AppShell() {
       <TopBar />
       <main className={styles.main}><Outlet /></main>
       <ToastHost />
+      <SystemLockedOverlay />
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onSuccess={() => window.location.reload()} />
     </>
   );

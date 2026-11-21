@@ -233,6 +233,7 @@ In the AI Agent console, operators can use slash commands:
 | **POL-003** | Tool Least Privilege | Limits tool executions to allow-listed binaries, read-only SQL, and AST math. |
 | **POL-004** | Human Approval Gate | Suspends execution and requires operator approval for high-risk or classified actions. |
 | **POL-005** | Prevent Data Exfiltration | Halts pipeline if tainted confidential/restricted data attempts to reach external sinks. |
+| **POL-006** | Cryptographic Integrity Lockdown | Enforces keyed HMAC hash-chains, external signed anchors, signed security state, and fail-closed lockdown on tamper. |
 
 ---
 

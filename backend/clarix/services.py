@@ -92,6 +92,7 @@ _SESSION = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 
 
 def agent_chat(ctx, req):
+    ctx.integrity.ensure_not_locked()
     b = req.json()
     sid = b.get("sessionId")
     if sid is not None and not (isinstance(sid, str) and _SESSION.match(sid)):
@@ -166,6 +167,7 @@ def policies_list(ctx, req):
 
 
 def policy_patch(ctx, req):
+    ctx.integrity.ensure_not_locked()
     pid = req.params["id"]
     if pid not in {p["id"] for p in ctx.policy.view()}:
         raise not_found(f"Policy {pid} not found")
@@ -175,6 +177,7 @@ def policy_patch(ctx, req):
     ctx.policy.set_enabled(pid, en)
     ctx.audit.append(user=req.operator, action=f"{'Enabled' if en else 'Disabled'} {pid}", component="Policy Engine", risk="LOW" if en else "HIGH",
                      decision="ALLOW", classification="INTERNAL", payload=f"policy:{pid}:{en}")
+    ctx.integrity.sign_security_state()
     return next(p for p in ctx.policy.view() if p["id"] == pid)
 
 
@@ -183,6 +186,7 @@ def tools_list(ctx, req):
 
 
 def tool_permission(ctx, req):
+    ctx.integrity.ensure_not_locked()
     tid = req.params["id"]
     if tid not in TOOLS:
         raise not_found(f"Tool {tid} not found")
@@ -197,10 +201,12 @@ def tool_permission(ctx, req):
         raise forbidden(str(e), "air_gap_locked") from None
     ctx.audit.append(user=req.operator, action=f"Set {TOOLS[tid].name} permission to {level}", component="Tool Permission", risk=TOOLS[tid].risk,
                      decision="ALLOW", classification="INTERNAL", payload=f"tool:{tid}:{level}")
+    ctx.integrity.sign_security_state()
     return next(t for t in ctx.tools.view(True) if t["id"] == tid)
 
 
 def tool_execute(ctx, req):
+    ctx.integrity.ensure_not_locked()
     tid = req.params["id"]
     if tid not in TOOLS:
         raise not_found(f"Tool {tid} not found")
@@ -213,6 +219,7 @@ def approvals_list(ctx, req):
 
 
 def approval_resolve(ctx, req):
+    ctx.integrity.ensure_not_locked()
     b = req.json()
     return ctx.approvals.resolve(req.params["id"], _str(b, "decision", 12), req.operator, b.get("note") if isinstance(b.get("note"), str) else None)
 
@@ -230,6 +237,7 @@ def rag_documents(ctx, req):
 
 
 def rag_ingest(ctx, req):
+    ctx.integrity.ensure_not_locked()
     if req.files:
         fname, data = next(iter(req.files.values()))
         cls = req.form.get("classification", "")
@@ -239,11 +247,15 @@ def rag_ingest(ctx, req):
         data = _str(b, "text", ctx.settings.max_upload_bytes).encode("utf-8") if "text" in b else b""
         if not data:
             raise bad_request("Send a multipart 'file' upload, or JSON with 'name', 'classification' and 'text'")
-    return ctx.rag.ingest(fname, data, cls, req.operator)
+    res = ctx.rag.ingest(fname, data, cls, req.operator)
+    ctx.integrity.sign_security_state()
+    return res
 
 
 def rag_query(ctx, req):
     q = _str(req.json(), "q", 2000)
+    ctx.audit.append(user=req.operator, action="RAG semantic search", component="RAG", risk="LOW",
+                     decision="ALLOW", classification="INTERNAL", payload=f"rag:query:{q[:100]}")
     try:
         return ctx.rag.search(q, k=5)
     except (OllamaUnavailable, OllamaError) as e:
@@ -343,3 +355,37 @@ def audit_head(ctx, req):
 
 def health_view(ctx, req):
     return ctx.telemetry.health()
+
+
+# --------------------------------------------------------------------------- integrity
+def integrity_status(ctx, req):
+    return ctx.integrity.status()
+
+
+def integrity_incidents(ctx, req):
+    try:
+        limit = max(1, min(1000, int(req.query.get("limit", "100"))))
+    except (ValueError, TypeError):
+        limit = 100
+    return ctx.integrity.incidents(limit=limit)
+
+
+def integrity_recover(ctx, req):
+    b = req.json()
+    mode = _str(b, "mode", 40)
+    reason = _str(b, "reason", 500)
+    confirmation = _str(b, "confirmation", 200, required=False)
+    return ctx.integrity.recover(mode=mode, reason=reason, confirmation=confirmation, operator=req.operator)
+
+
+def integrity_export_anchor(ctx, req):
+    return ctx.integrity.export_anchor()
+
+
+def demo_tamper(ctx, req):
+    if not getattr(ctx.settings, "demo_mode", False):
+        raise forbidden("Tamper simulation is only available when CLARIX_DEMO_MODE=1", "demo_disabled")
+    b = req.json()
+    attack = _str(b, "attack", 60)
+    return ctx.integrity.demo_tamper(attack)
+

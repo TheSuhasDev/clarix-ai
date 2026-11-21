@@ -7,6 +7,7 @@ export { approvalService } from './approvalService';
 export { ragService } from './ragService';
 export { ollamaService } from './ollamaService';
 export { auditService } from './auditService';
+export type { IntegrityStatus, IntegrityIncident } from './auditService';
 export { healthService } from './healthService';
 export { settingsService } from './settingsService';
 export { config, setEndpoints, setApiToken, setSimulatedErrors, getSimulatedErrors } from './client';

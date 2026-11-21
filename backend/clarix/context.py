@@ -10,6 +10,7 @@ from .approvals import Approvals, Grants
 from .audit import AuditLog
 from .config import Settings
 from .db import Database
+from .integrity import IntegrityManager
 from .intent import IntentClassifier
 from .llm.ollama import OllamaClient
 from .metrics import Metrics
@@ -40,6 +41,7 @@ class Context:
         self.verifier = EvidenceVerificationEngine(max_retries=1)
         self.intent = IntentClassifier()
         self.audit = AuditLog(self.db)
+        self.integrity = IntegrityManager(self)
         self.metrics = Metrics(self.db)
         self.tools = ToolRegistry(self.db)
         self.grants = Grants(self.db)
@@ -73,7 +75,9 @@ class Context:
 
     def start(self) -> None:
         self.telemetry.start()
+        self.integrity.start()
 
     def close(self) -> None:
         self.telemetry.stop()
+        self.integrity.stop()
         guard.set_sink(None)

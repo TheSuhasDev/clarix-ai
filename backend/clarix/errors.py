@@ -6,6 +6,13 @@ class ApiError(Exception):
         self.status, self.code, self.message = status, code, message
 
 
+class SystemLockedError(ApiError):
+    def __init__(self, reason: str, evidence: str = ""):
+        super().__init__(423, "system_locked", f"System in lockdown: {reason}")
+        self.reason = reason
+        self.evidence = evidence
+
+
 def bad_request(msg: str, code: str = "bad_request") -> ApiError:
     return ApiError(400, code, msg)
 

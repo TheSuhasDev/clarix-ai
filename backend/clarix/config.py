@@ -63,6 +63,7 @@ class Settings:
     chat_timeout_s: float = 120.0
     rag_min_score_neural: float = 0.30   # cosine; drops clearly irrelevant passages. Tune for your embedding model
     rag_min_score_lexical: float = 0.10  # for the word-overlap fallback embedder
+    integrity_mode: str = "enforce"      # enforce | warn | off
 
     @property
     def workspace(self) -> Path:
@@ -124,6 +125,7 @@ class Settings:
             rate_limit_per_min=int(e.get("CLARIX_RATE_LIMIT_PER_MIN", "60")),
             rag_min_score_neural=float(e.get("CLARIX_RAG_MIN_SCORE_NEURAL", "0.30")),
             rag_min_score_lexical=float(e.get("CLARIX_RAG_MIN_SCORE_LEXICAL", "0.10")),
+            integrity_mode=e.get("CLARIX_INTEGRITY_MODE", "enforce").strip().lower(),
         )
         s.validate(allow_non_loopback=_bool(e.get("CLARIX_ALLOW_NON_LOOPBACK"), False))
         return s

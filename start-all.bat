@@ -65,7 +65,7 @@ if %ERRORLEVEL% NEQ 0 (
 
 :: 7. Launch Backend Server in a new window
 echo [INFO] Starting Clarix Backend Server on http://127.0.0.1:8000...
-start "Clarix Backend" /D "%~dp0backend" cmd /k "set CLARIX_DEMO_MODE=1 && python -m clarix"
+start "Clarix Backend" /D "%~dp0backend" cmd /k "set CLARIX_DEMO_MODE=1&& python -m clarix"
 
 :: 8. Launch Frontend Console in a new window
 echo [INFO] Starting Clarix Frontend Console on http://localhost:5173...

@@ -71,11 +71,28 @@ export async function request<T>(path: string, init?: RequestInit, timeoutMs = 8
         window.dispatchEvent(new CustomEvent('clarix:auth_required', { detail: { path, status: 401 } }));
       }
       let msg = `Backend returned ${res.status} for ${path}`;
+      let errBody: Record<string, any> | null = null;
       try {
-        const j = (await res.json()) as { error?: { message?: string } };
-        if (j.error?.message) msg = j.error.message;
+        errBody = (await res.json()) as Record<string, any>;
+        if (errBody?.error?.message) msg = errBody.error.message;
+        else if (errBody?.message) msg = errBody.message;
       } catch { /* non-JSON error body */ }
-      throw new ApiError(msg, res.status);
+
+      if (res.status === 423 && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('clarix:system_locked', {
+          detail: {
+            path,
+            status: 423,
+            code: errBody?.error?.code || 'system_locked',
+            reason: errBody?.error?.reason || errBody?.error?.message || 'Cryptographic integrity violation',
+            evidence: errBody?.error?.evidence || '',
+          }
+        }));
+      }
+
+      const err = new ApiError(msg, res.status);
+      (err as any).data = errBody;
+      throw err;
     }
     return (await res.json()) as T;
   } catch (e) {

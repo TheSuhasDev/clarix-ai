@@ -242,7 +242,72 @@ Returns the current head hash of the ledger for external anchoring.
 
 ---
 
-## 9. Infrastructure
+## 9. Cryptographic Integrity & Anti-Tamper (POL-006)
+
+### `GET /api/integrity/status`
+Returns real-time integrity status: lockdown state, trigger presence, signed state verification, and external anchor status.
+
+**Response:**
+```json
+{
+  "status": "VERIFIED",
+  "mode": "enforce",
+  "locked": false,
+  "triggers_ok": true,
+  "state_sig_ok": true,
+  "anchor_ok": true,
+  "last_checked": "2026-11-21 10:45:00",
+  "last_checked_seconds_ago": 2,
+  "anchor": {
+    "count": 142,
+    "head_hash": "a3f8921e...89d1",
+    "timestamp": "2026-11-21 10:44:58",
+    "signature": "7d9b...88a1"
+  },
+  "pol006_active": true
+}
+```
+
+### `GET /api/integrity/incidents`
+Returns the external hash-chained incident log (`incidents.log`) recording detected tamper attempts and lockdown triggers.
+
+### `POST /api/integrity/recover`
+Unlocks the system from fail-closed lockdown via snapshot restore or authenticated rebaseline. Requires operator token.
+
+**Request Body (Rebaseline):**
+```json
+{
+  "mode": "rebaseline",
+  "reason": "Authorized policy updates confirmed by SOC operator",
+  "confirmation": "I CONFIRM REBASELINE OF SECURITY STATE"
+}
+```
+
+**Request Body (Snapshot Restore):**
+```json
+{
+  "mode": "restore_snapshot",
+  "reason": "Reverting untrusted modifications to latest clean checkpoint"
+}
+```
+
+### `GET /api/integrity/anchor/export`
+Exports the external signed cryptographic anchor payload `{count, head_hash, timestamp, signature}` for out-of-band archiving or WORM storage.
+
+### `POST /api/demo/tamper`
+Simulates out-of-band tamper attacks against the database bypassing official APIs. Only available when `CLARIX_DEMO_MODE=1`.
+
+**Request Body:**
+```json
+{
+  "attack": "edit_row_and_rehash"
+}
+```
+Supported attack types: `edit_row_and_rehash`, `truncate_tail`, `forge_row`, `rollback_db`, `change_permission`, `disable_policy`, `drop_trigger`.
+
+---
+
+## 10. Infrastructure
 
 ### `GET /api/infrastructure/storage`
 Returns the status of local at-rest encryption (AES-256 Fernet) and key vault origin.

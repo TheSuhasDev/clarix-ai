@@ -59,6 +59,25 @@ Clarix assigns a security classification tag to all ingress prompts, documents, 
   2. Tool outputs are scanned for prompt injection attacks before being shown to the model.
   3. Model outputs undergo secret redaction (regex sanitization for keys, bearer tokens, passwords) before being rendered.
 
+### POL-006: Cryptographic Integrity Lockdown
+- **Domain**: Cryptographic Anti-Tamper & Fail-Closed Integrity
+- **Objective**: Prevents out-of-band manipulation of the audit ledger, immutability triggers, security policies, or tool permissions. Enforces fail-closed lockdown if any tampering occurs.
+- **Rules**:
+  1. **Keyed Hash Chain (HMAC-SHA256)**: Events are chained with `HMAC-SHA256(key, prev_hash + canonical)` using a 32-byte secret (`audit.key`) stored strictly outside the SQLite database with 0600 permissions. Legacy SHA-256 chains are verified and upgraded seamlessly with a `CHAIN_UPGRADE` event.
+  2. **External Cryptographic Anchor**: Every append writes a signed `{count, head_hash, timestamp, signature}` anchor file (`audit_anchor.json`) outside the database. Verification fails if database count is below anchor count, head hash differs, or events are inserted without updating the anchor.
+  3. **Trigger Guard**: Periodically and before sensitive actions, Clarix verifies that `audit_no_update` and `audit_no_delete` triggers exist and enforce append-only immutability.
+  4. **Signed Security State**: Computes an HMAC over canonical JSON of policies, tool permission levels, and document classifications. Direct database updates break the signature.
+  5. **Continuous Verification (<10ms Fast Checks)**: Validates triggers, state signature, and external anchor before sensitive actions (`agent_chat`, `tool_execute`, `approval_resolve`, `rag_ingest`, `policy_patch`, `tool_permission`) and every 5 seconds in the background.
+  6. **Fail-Closed Lockdown**: Discrepancies immediately engage fail-closed lockdown (`lockdown.json`), returning HTTP 423 `Locked` (`system_locked`) for all sensitive operations. Read-only audit inspection, health, and incident logs remain available. Incidents are recorded to a hash-chained `incidents.log`.
+  7. **Operator Recovery**: Recovery requires administrative authentication:
+     - `restore_snapshot`: Restores database from the latest verified snapshot (`snapshots/latest.db`).
+     - `rebaseline`: Requires written justification and exact confirmation phrase `"I CONFIRM REBASELINE OF SECURITY STATE"`. Re-seals the audit chain, signs active state, anchors the head, and logs an audited `RECOVERY_REBASELINE` event.
+
+#### Honest Root-Level Limitations (Threat Model)
+- **Attacker without DB access**: 100% blocked, logged, and isolated.
+- **Attacker with SQLite write access (no host root)**: Cannot forge valid HMAC blocks, alter policies/tools, truncate tail events, or drop triggers without detection. Detected within <10ms on next action or <5s background sweep.
+- **Attacker with full host root access**: A host root attacker can read `audit.key`, rewrite both the database and `audit_anchor.json`, or modify Python binaries directly. For true defense against root compromise, Clarix provides `GET /api/integrity/anchor/export` to export the signed anchor out-of-band to a remote WORM (Write Once, Read Many) syslog server, hardware security module (HSM), or printed hardcopy ledger.
+
 ---
 
 ## 3. Cryptographic Audit Chain (Tamper-Evidence)

@@ -30,5 +30,10 @@ ROUTES: list[Route] = [
     Route("GET", "/api/audit/chain", s.audit_list, "Alias of /api/audit", "audit"),
     Route("GET", "/api/audit/verify", s.audit_verify, "Recompute and verify the whole chain server-side", "audit"),
     Route("GET", "/api/audit/head", s.audit_head, "Current head hash (anchor this externally)", "audit"),
+    Route("GET", "/api/integrity/status", s.integrity_status, "System tamper lockdown and verification status", "integrity"),
+    Route("GET", "/api/integrity/incidents", s.integrity_incidents, "Tamper and lockdown incident log", "integrity"),
+    Route("POST", "/api/integrity/recover", s.integrity_recover, "Unlock system via snapshot restore or authenticated rebaseline", "integrity"),
+    Route("GET", "/api/integrity/anchor/export", s.integrity_export_anchor, "Export external cryptographic anchor", "integrity"),
+    Route("POST", "/api/demo/tamper", s.demo_tamper, "Simulate tamper attacks against audit ledger / state (demo only)", "integrity"),
     Route("GET", "/api/health", s.health_view, "Subsystem health and host telemetry", "health"),
 ]
