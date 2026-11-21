@@ -45,6 +45,13 @@ export default function App() {
               <Route path="/approvals" element={<Approvals />} />
               <Route path="/air-gap" element={<AirGap />} />
               <Route path="/network" element={<Network />} />
+              <Route path="/network/dashboard" element={<Network />} />
+              <Route path="/network/topology" element={<Network />} />
+              <Route path="/network/devices" element={<Network />} />
+              <Route path="/network/incidents" element={<Network />} />
+              <Route path="/network/investigation" element={<Network />} />
+              <Route path="/network/diagnostics" element={<Network />} />
+              <Route path="/network/settings" element={<Network />} />
               <Route path="/rag" element={<Rag />} />
               <Route path="/local-tools" element={<LocalTools />} />
               <Route path="/ollama" element={<Ollama />} />

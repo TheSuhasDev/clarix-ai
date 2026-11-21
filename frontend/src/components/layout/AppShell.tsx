@@ -15,8 +15,10 @@ export function AppShell() {
   const sections = useSidebarSections();
 
   useEffect(() => {
-    const item = ALL_NAV.find((n) => n.path === pathname);
-    document.title = `${item ? item.label : 'Console'} · Clarix AI`;
+    if (!pathname.startsWith('/network')) {
+      const item = ALL_NAV.find((n) => n.path === pathname);
+      document.title = `${item ? item.label : 'Console'} · Clarix AI`;
+    }
     window.scrollTo(0, 0);
 
     const onAuthRequired = () => setAuthOpen(true);

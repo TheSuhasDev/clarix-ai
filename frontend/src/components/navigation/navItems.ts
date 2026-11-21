@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import {
-  Activity,
+  ActivitySquare,
+  AlertOctagon,
   Bot,
   Cpu,
   Database,
@@ -11,10 +12,14 @@ import {
   HeartPulse,
   Home,
   Layers,
+  LayoutDashboard,
   LayoutGrid,
+  Network as NetworkIcon,
+  Server,
   Settings,
   Shield,
   ShieldAlert,
+  Sparkles,
   Terminal,
   UserCheck,
   WifiOff,
@@ -82,8 +87,17 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         path: '/network',
-        label: 'Network Monitor',
-        icon: Activity,
+        label: 'Network',
+        icon: NetworkIcon,
+        children: [
+          { path: '/network/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          { path: '/network/topology', label: 'Network Topology', icon: NetworkIcon },
+          { path: '/network/devices', label: 'Devices', icon: Server },
+          { path: '/network/incidents', label: 'Incidents', icon: AlertOctagon },
+          { path: '/network/investigation', label: 'AI Investigation', icon: Sparkles },
+          { path: '/network/diagnostics', label: 'Diagnostics', icon: ActivitySquare },
+          { path: '/network/settings', label: 'Network Settings', icon: Settings },
+        ],
       },
       { path: '/tool-permissions', label: 'Tool Permissions', icon: Wrench },
       { path: '/taint', label: 'Data Taint', icon: GitFork },
@@ -118,7 +132,9 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-export const ALL_NAV: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
+export const ALL_NAV: NavItem[] = NAV_GROUPS.flatMap((g) =>
+  g.items.flatMap((item) => [item, ...(item.children ?? [])])
+);
 
 export const SIDEBAR_SETTINGS_ITEM: SidebarItem = {
   key: 'settings',
@@ -197,9 +213,53 @@ export function useSidebarSections(): SidebarSection[] {
           },
           {
             key: 'network',
-            label: 'Network Monitor',
-            icon: Activity,
+            label: 'Network',
+            icon: NetworkIcon,
             href: '/network',
+            children: [
+              {
+                key: 'network-dashboard',
+                label: 'Dashboard',
+                icon: LayoutDashboard,
+                href: '/network/dashboard',
+              },
+              {
+                key: 'network-topology',
+                label: 'Network Topology',
+                icon: NetworkIcon,
+                href: '/network/topology',
+              },
+              {
+                key: 'network-devices',
+                label: 'Devices',
+                icon: Server,
+                href: '/network/devices',
+              },
+              {
+                key: 'network-incidents',
+                label: 'Incidents',
+                icon: AlertOctagon,
+                href: '/network/incidents',
+              },
+              {
+                key: 'network-investigation',
+                label: 'AI Investigation',
+                icon: Sparkles,
+                href: '/network/investigation',
+              },
+              {
+                key: 'network-diagnostics',
+                label: 'Diagnostics',
+                icon: ActivitySquare,
+                href: '/network/diagnostics',
+              },
+              {
+                key: 'network-settings',
+                label: 'Network Settings',
+                icon: Settings,
+                href: '/network/settings',
+              },
+            ],
           },
           {
             key: 'tool-permissions',

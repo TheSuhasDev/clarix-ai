@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#FFFFFF" />
+      <stop offset="50%" stopColor="#E6F4FF" />
+      <stop offset="100%" stopColor="#CBE6FF" />
+    </linearGradient>
+    <linearGradient id="visorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#0B1A30" />
+      <stop offset="100%" stopColor="#173560" />
+    </linearGradient>
+    <linearGradient id="cyanGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stopColor="#00D9F5" />
+      <stop offset="100%" stopColor="#176BFF" />
+    </linearGradient>
+    <linearGradient id="purpleGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#8174FF" />
+      <stop offset="100%" stopColor="#65E7FF" />
+    </linearGradient>
+    <radialGradient id="eyeGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stopColor="#65E7FF" />
+      <stop offset="70%" stopColor="#00D9F5" />
+      <stop offset="100%" stopColor="#176BFF" stopOpacity="0" />
+    </radialGradient>
+    <filter id="glassShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#176BFF" flood-opacity="0.18" />
+    </filter>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Ambient background glow behind robot -->
+  <circle cx="200" cy="200" r="140" fill="url(#cyanGlow)" opacity="0.15" filter="url(#softGlow)" />
+  <circle cx="200" cy="220" r="110" fill="url(#purpleGlow)" opacity="0.1" filter="url(#softGlow)" />
+
+  <!-- Floating Audio/Sensor Antennas -->
+  <g>
+    <!-- Left Antenna -->
+    <path d="M 125 150 C 110 130, 95 140, 105 165" stroke="url(#cyanGlow)" stroke-width="6" stroke-linecap="round" fill="none" />
+    <circle cx="102" cy="142" r="9" fill="#00D9F5" filter="url(#softGlow)" />
+    <!-- Right Antenna -->
+    <path d="M 275 150 C 290 130, 305 140, 295 165" stroke="url(#cyanGlow)" stroke-width="6" stroke-linecap="round" fill="none" />
+    <circle cx="298" cy="142" r="9" fill="#00D9F5" filter="url(#softGlow)" />
+  </g>
+
+  <!-- Robot Head (Liquid Glass Sphere) -->
+  <g filter="url(#glassShadow)">
+    <rect x="110" y="80" width="180" height="150" rx="65" fill="url(#bodyGrad)" stroke="#FFFFFF" stroke-width="3" />
+    
+    <!-- Glossy top reflection -->
+    <ellipse cx="200" cy="100" rx="60" ry="14" fill="#FFFFFF" opacity="0.8" />
+
+    <!-- Visor Display -->
+    <rect x="130" y="115" width="140" height="85" rx="36" fill="url(#visorGrad)" stroke="rgba(255,255,255,0.4)" stroke-width="2" />
+
+    <!-- Visor Gloss Reflection -->
+    <path d="M 145 125 Q 200 135 255 125 C 250 145, 150 145, 145 125 Z" fill="#FFFFFF" opacity="0.18" />
+
+    <!-- Glowing Cyan/Blue Visor Eyes -->
+    <ellipse cx="168" cy="155" rx="14" ry="18" fill="url(#eyeGlow)" filter="url(#softGlow)" />
+    <ellipse cx="168" cy="155" rx="8" ry="12" fill="#FFFFFF" />
+
+    <ellipse cx="232" cy="155" rx="14" ry="18" fill="url(#eyeGlow)" filter="url(#softGlow)" />
+    <ellipse cx="232" cy="155" rx="8" ry="12" fill="#FFFFFF" />
+
+    <!-- Subtle AI Pulse Smile/Wave -->
+    <path d="M 188 180 Q 200 186 212 180" stroke="#00D9F5" stroke-width="3" stroke-linecap="round" fill="none" />
+  </g>
+
+  <!-- Neck Link -->
+  <rect x="180" y="225" width="40" height="16" rx="6" fill="#A8D2FC" stroke="#FFFFFF" stroke-width="1.5" />
+
+  <!-- Robot Torso (Glossy VisionOS Pod) -->
+  <g filter="url(#glassShadow)">
+    <rect x="135" y="235" width="130" height="115" rx="42" fill="url(#bodyGrad)" stroke="#FFFFFF" stroke-width="2.5" />
+    
+    <!-- Torso Specular Highlight -->
+    <path d="M 155 245 Q 200 252 245 245" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.75" />
+
+    <!-- Center Core AI Reactor (Electric Blue / Purple) -->
+    <circle cx="200" cy="285" r="22" fill="#0E2342" stroke="rgba(255,255,255,0.5)" stroke-width="2" />
+    <circle cx="200" cy="285" r="16" fill="url(#cyanGlow)" filter="url(#softGlow)" />
+    <circle cx="200" cy="285" r="7" fill="#FFFFFF" />
+    
+    <!-- Core Ring Orbit -->
+    <circle cx="200" cy="285" r="26" fill="none" stroke="#65E7FF" stroke-width="1.5" stroke-dasharray="8 6" opacity="0.8" />
+  </g>
+
+  <!-- Floating Pod Arms -->
+  <g filter="url(#glassShadow)">
+    <!-- Left Hand Float -->
+    <circle cx="105" cy="275" r="18" fill="url(#bodyGrad)" stroke="#FFFFFF" stroke-width="2" />
+    <circle cx="105" cy="275" r="7" fill="#00D9F5" opacity="0.7" />
+
+    <!-- Right Hand Wave -->
+    <circle cx="295" cy="265" r="18" fill="url(#bodyGrad)" stroke="#FFFFFF" stroke-width="2" />
+    <circle cx="295" cy="265" r="7" fill="#00D9F5" opacity="0.7" />
+  </g>
+
+  <!-- Floating Holographic Data Sparks -->
+  <circle cx="315" cy="180" r="4" fill="#00D9F5" filter="url(#softGlow)" />
+  <circle cx="90" cy="210" r="3.5" fill="#8174FF" filter="url(#softGlow)" />
+  <circle cx="200" cy="370" r="3" fill="#65E7FF" filter="url(#softGlow)" />
+</svg>
