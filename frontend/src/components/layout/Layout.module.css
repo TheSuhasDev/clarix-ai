@@ -18,15 +18,16 @@
   top: 0;
   height: var(--header-h);
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 1.2rem;
-  padding: 0 clamp(1rem, 2.4vw, 2.4rem);
-  background: rgba(238, 244, 252, 0.97);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid rgba(53, 92, 154, 0.14);
-  box-shadow: 0 4px 24px rgba(25, 45, 80, 0.05);
+  padding: 12px clamp(1rem, 2.4vw, 2.4rem) 0;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
   pointer-events: none;
 }
 .top > * { pointer-events: auto; }

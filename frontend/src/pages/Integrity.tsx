@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   ShieldAlert,
   ArrowDown,
-  Database,
   CheckCircle2,
   XCircle,
   PlayCircle,
@@ -38,8 +37,6 @@ export default function Integrity() {
   const [text, setText] = useState('');
   const [digest, setDigest] = useState('');
   const [genErr, setGenErr] = useState('');
-
-  const isDemoMode = intStatus?.demoMode ?? true;
 
   const loadComparison = useCallback(async () => {
     try {
@@ -146,45 +143,6 @@ export default function Integrity() {
         subtitle="Keyed HMAC-SHA256, external anchor, signed security state, and fail-closed lockdown (POL-006)."
         aside={
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {intStatus?.ledger === 'demo' || isDemoMode ? (
-              <span
-                style={{
-                  backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                  border: '1px solid rgba(245, 158, 11, 0.4)',
-                  color: '#fbbf24',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                <Database width={13} height={13} />
-                DEMO LEDGER · clarix_demo.db (SANDBOX)
-              </span>
-            ) : (
-              <span
-                style={{
-                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                  border: '1px solid rgba(16, 185, 129, 0.4)',
-                  color: '#34d399',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                <ShieldCheck width={13} height={13} />
-                LIVE LEDGER · clarix.db (PRODUCTION)
-              </span>
-            )}
             <Pill tone={cryptoOk ? 'green' : 'amber'} large>
               <ShieldCheck />Web Crypto API (SubtleCrypto)
             </Pill>

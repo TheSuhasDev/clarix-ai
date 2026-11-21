@@ -56,16 +56,16 @@ class TestNavigationLayoutTokens(unittest.TestCase):
         self.assertIn("margin: 0 auto;", content)
 
     def test_landing_page_offset_and_sidebar(self):
-        """Landing page must render Sidebar and offset hero content by the sidebar width."""
+        """Landing page must render Sidebar and PillNav, and offset hero content by the sidebar width."""
         landing_tsx_path = os.path.join(FRONTEND_DIR, "src", "landing", "Landing.tsx")
         landing_css_path = os.path.join(FRONTEND_DIR, "src", "styles", "landing.css")
         with open(landing_tsx_path, "r", encoding="utf-8") as f1, open(landing_css_path, "r", encoding="utf-8") as f2:
             tsx = f1.read()
             css = f2.read()
 
-        # Sidebar must be rendered, PillNav removed
+        # Both Sidebar and PillNav must be rendered on landing
         self.assertIn("<Sidebar", tsx)
-        self.assertNotIn("<PillNav", tsx)
+        self.assertIn("<PillNav", tsx)
 
         # Hero copy must be present
         self.assertIn("AI you can trust <b>with classified documents</b>", tsx)

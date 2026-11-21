@@ -108,7 +108,6 @@ export default function Audit() {
   const [comp, setComp] = useState('All Components');
   const [showCommands, setShowCommands] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [togglingDemo, setTogglingDemo] = useState(false);
 
   // Timezone display toggle: 'local' | 'utc'
   const [timeMode, setTimeMode] = useState<'local' | 'utc'>('local');
@@ -143,22 +142,6 @@ export default function Audit() {
     window.addEventListener('clarix:demo_mode_changed', onDemoChanged);
     return () => window.removeEventListener('clarix:demo_mode_changed', onDemoChanged);
   }, [reload, reloadStatus]);
-
-  async function handleToggleDemoMode() {
-    setTogglingDemo(true);
-    try {
-      const nextMode = !isDemo;
-      const res = await auditService.toggleDemoMode(nextMode);
-      toast(res.demoMode ? 'Switched to Demo Mode (isolated sandbox ledger).' : 'Returned to Live Ledger (production files untouched).', 'green');
-      window.dispatchEvent(new CustomEvent('clarix:demo_mode_changed', { detail: res }));
-      await Promise.all([reload(), reloadStatus()]);
-      setCurrentPage(1);
-    } catch (e: any) {
-      toast(e?.message || 'Failed to toggle demo mode', 'red');
-    } finally {
-      setTogglingDemo(false);
-    }
-  }
 
   const comps = useMemo(() => ['All Components', ...Array.from(new Set((data ?? []).map((e) => e.component)))], [data]);
 
@@ -265,71 +248,6 @@ export default function Audit() {
         icon={<FileText color="#2563ff" />}
         title="Audit & Evidence Ledger"
         subtitle="Cryptographically tamper-evident audit trail with keyed HMAC-SHA256, external anchor, and fail-closed lockdown."
-        aside={
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-            {isDemo ? (
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 11px',
-                  borderRadius: '6px',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
-                  backgroundColor: 'rgba(245, 158, 11, 0.16)',
-                  color: '#d97706',
-                  border: '1px solid rgba(245, 158, 11, 0.45)',
-                  letterSpacing: '0.02em',
-                }}
-                title={`Isolated Demo Ledger: ${dbPathDisplay}`}
-              >
-                <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#d97706', boxShadow: '0 0 6px #d97706' }} />
-                <span>DEMO MODE · sandbox ledger</span>
-              </span>
-            ) : (
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 11px',
-                  borderRadius: '6px',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
-                  backgroundColor: 'rgba(16, 185, 129, 0.14)',
-                  color: '#059669',
-                  border: '1px solid rgba(16, 185, 129, 0.45)',
-                  letterSpacing: '0.02em',
-                }}
-                title={`Live Production Ledger: ${dbPathDisplay}`}
-              >
-                <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#059669', boxShadow: '0 0 6px #059669' }} />
-                <span>LIVE LEDGER</span>
-              </span>
-            )}
-
-            <button
-              type="button"
-              className="cx-btn cx-btn--ghost cx-btn--sm"
-              onClick={handleToggleDemoMode}
-              disabled={togglingDemo}
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                padding: '3px 10px',
-                borderRadius: '6px',
-                border: isDemo ? '1px solid #d97706' : '1px solid #cbd5e1',
-                color: isDemo ? '#b45309' : '#1e293b',
-                backgroundColor: isDemo ? 'rgba(254, 243, 199, 0.9)' : '#ffffff',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-              }}
-              title={isDemo ? 'Exit Demo Mode and return to live production ledger' : 'Enter Demo Mode to test attacks in safe sandbox'}
-            >
-              {togglingDemo ? 'Switching…' : isDemo ? 'Exit Demo Mode' : 'Enter Demo Mode'}
-            </button>
-          </div>
-        }
       />
 
       {/* Verification Result Banner (if run) */}
@@ -365,7 +283,7 @@ export default function Audit() {
                   Tamper Lockdown Demo & Attack Guide (POL-006)
                 </h3>
                 <p style={{ margin: '2px 0 0 0', font: '400 0.76rem var(--font-sans)', color: '#cbd5e1' }}>
-                  Simulates direct database attacks bypassing APIs. All attacks target the isolated demo sandbox ({dbPathDisplay}).
+                  Simulates direct database attacks bypassing APIs. All attacks target the isolated demo sandbox (data/demo/clarix_demo.db).
                 </p>
               </div>
             </div>
@@ -374,33 +292,37 @@ export default function Audit() {
               <button
                 type="button"
                 className="cx-btn"
+                disabled={!isDemo}
                 style={{
-                  backgroundColor: '#1d4ed8',
-                  borderColor: '#60a5fa',
-                  color: '#ffffff',
+                  backgroundColor: !isDemo ? '#374151' : '#1d4ed8',
+                  borderColor: !isDemo ? '#4b5563' : '#60a5fa',
+                  color: !isDemo ? '#9ca3af' : '#ffffff',
                   fontWeight: 700,
-                  boxShadow: '0 2px 8px rgba(29, 78, 216, 0.4)',
+                  boxShadow: !isDemo ? 'none' : '0 2px 8px rgba(29, 78, 216, 0.4)',
+                  cursor: !isDemo ? 'not-allowed' : 'pointer',
                 }}
-                onClick={() => setShowCommands(!showCommands)}
+                onClick={() => isDemo && setShowCommands(!showCommands)}
+                title={!isDemo ? 'Enter Demo Mode to use the attack guide' : showCommands ? 'Hide Attack Terminal' : 'Show me how to attack it'}
               >
                 <Terminal width={14} height={14} />
-                {showCommands ? 'Hide Attack Terminal' : 'Show me how to attack it'}
-                {showCommands ? <ChevronUp width={13} height={13} /> : <ChevronDown width={13} height={13} />}
+                {showCommands && isDemo ? 'Hide Attack Terminal' : 'Show me how to attack it'}
+                {showCommands && isDemo ? <ChevronUp width={13} height={13} /> : <ChevronDown width={13} height={13} />}
               </button>
 
               <button
                 type="button"
                 className="cx-btn"
                 style={{
-                  backgroundColor: '#7f1d1d',
-                  borderColor: '#ef4444',
-                  color: '#fef2f2',
+                  backgroundColor: !isDemo ? '#374151' : '#7f1d1d',
+                  borderColor: !isDemo ? '#4b5563' : '#ef4444',
+                  color: !isDemo ? '#9ca3af' : '#fef2f2',
                   fontWeight: 700,
-                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                  boxShadow: !isDemo ? 'none' : '0 2px 8px rgba(239, 68, 68, 0.3)',
+                  cursor: !isDemo ? 'not-allowed' : 'pointer',
                 }}
-                disabled={resetting}
+                disabled={!isDemo || resetting}
                 onClick={handleResetDemo}
-                title="Rebuild demo ledger with 40 fixed seed events and fresh anchor"
+                title={!isDemo ? 'Enter Demo Mode to use the attack guide' : 'Rebuild demo ledger with 40 fixed seed events and fresh anchor'}
               >
                 <RotateCcw width={14} height={14} />
                 {resetting ? 'Resetting…' : 'Reset Demo Ledger (40 Events)'}
@@ -408,8 +330,29 @@ export default function Audit() {
             </div>
           </div>
 
+          {!isDemo && (
+            <div
+              style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.14)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                borderRadius: '6px',
+                padding: '10px 14px',
+                marginTop: '10px',
+                color: '#fca5a5',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <ShieldAlert width={16} height={16} />
+              <span>Enter Demo Mode to use the attack guide. Attacks are strictly prevented on the live production ledger.</span>
+            </div>
+          )}
+
           {/* Quick Terminal Command Box */}
-          {showCommands && (
+          {isDemo && showCommands && (
             <div
               style={{
                 backgroundColor: '#0a0a0c',

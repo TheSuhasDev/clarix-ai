@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { Sidebar } from '../components/navigation/Sidebar';
+import { PillNav } from '../components/navigation/PillNav';
 import { SIDEBAR_SETTINGS_ITEM, useSidebarSections } from '../components/navigation/navItems';
 import { useConsole } from '../state/ConsoleContext';
 import { ROBOTS } from '../utils/assets';
@@ -355,6 +356,7 @@ export default function Landing() {
         >
           <Menu size={20} />
         </button>
+        <PillNav />
       </header>
       <main>
         <Story />
