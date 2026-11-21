@@ -1,21 +1,27 @@
 /* Original Clarix landing styles, scoped under .landing */
 .landing{position:relative;font-family:var(--font-sans);--bg:#e8f0fa;--ink:#0a0b10;--mute:#586073;--accent:#e4285a;color-scheme:light;box-sizing:border-box;
+  --sidebar-w: var(--sidebar-w-expanded, 176px);
+  --sidebar-offset: calc(var(--sidebar-w) + 32px);
   padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.landing.collapsed{--sidebar-w: var(--sidebar-w-collapsed, 60px);--sidebar-offset: calc(var(--sidebar-w) + 32px)}
+@media (max-width: 900px){.landing, .landing.collapsed{--sidebar-offset: 0px}}
 .landing *,.landing *::before,.landing *::after{box-sizing:inherit}
 .landing{scroll-padding-top:env(safe-area-inset-top,0px)}
 .landing{margin:0;background:var(--bg);color:var(--ink);font-family:"Sofia Sans","Helvetica Neue",Arial,sans-serif;font-weight:300;line-height:1.35;overflow-x:clip}
 .landing a{color:inherit;text-decoration:none}
 .landing a:focus-visible,.landing button:focus-visible,.landing input:focus-visible{outline:2px solid #4a6bff;outline-offset:3px}
 .landing b{font-weight:400}
-.landing .top{position:fixed;left:0;right:0;top:0;z-index:20;display:flex;justify-content:flex-end;align-items:center;padding:calc(1rem + env(safe-area-inset-top,0px)) clamp(1rem,2.4vw,2.4rem) 0;pointer-events:none}
+.landing .top{position:fixed;left:0;right:0;top:0;z-index:20;display:flex;justify-content:flex-start;align-items:center;padding:calc(1rem + env(safe-area-inset-top,0px)) clamp(1rem,2.4vw,2.4rem) 0;pointer-events:none}
 .landing .top>*{pointer-events:auto}
+.landing-drawer-btn{display:none;width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.9);box-shadow:0 4px 14px rgba(15,42,61,0.08);align-items:center;justify-content:center;cursor:pointer;color:var(--ink)}
+@media (max-width: 900px){.landing-drawer-btn{display:inline-flex}}
 .landing #fig{position:fixed;inset:0;z-index:0;pointer-events:none;background:var(--bg);overflow:hidden}
 .landing #fig img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:70% 50%;opacity:0;will-change:opacity,transform}
 .landing main{position:relative;z-index:1}
 .landing #story{height:760vh;position:relative}
 .landing .view{position:sticky;top:0;height:100svh;overflow:hidden}
 .landing .blk{position:absolute;opacity:0;will-change:opacity,transform,filter;pointer-events:none}
-.landing .pad{left:clamp(1.2rem,4.2vw,4.5rem)}
+.landing .pad{left:calc(var(--sidebar-offset, 208px) + clamp(1rem, 2.5vw, 3rem))}
 .landing #h1{top:33%;margin:0;font-size:clamp(2.2rem,5.5vw,6rem);line-height:1.08;font-weight:300;letter-spacing:-.015em;white-space:nowrap}
 .landing #h1 b{display:block;font-weight:400}
 .landing #meta{bottom:6vh;width:min(26rem,85vw)}
@@ -27,7 +33,7 @@
 .landing #h2{top:20%;font-size:clamp(1.9rem,3.7vw,4rem);line-height:1.12;max-width:20ch}
 .landing #h2 b,.landing #h3 b{font-weight:600}
 .landing #h2 b{display:block}
-.landing #clients{left:clamp(1.2rem,4.2vw,4.5rem);right:0;top:30%}
+.landing #clients{left:calc(var(--sidebar-offset, 208px) + clamp(1rem, 2.5vw, 3rem));right:0;top:30%}
 .landing #clients small{display:block;font-size:.6rem;font-weight:400;letter-spacing:.05em;text-transform:uppercase;margin-bottom:.5rem}
 .landing #clients hr{border:0;height:1px;margin:0 0 1.8rem;background:linear-gradient(90deg,#3b6bff,#e4285a)}
 .landing #h3{top:48%;font-size:clamp(1.8rem,3.4vw,3.6rem);line-height:1.1;max-width:15ch}
@@ -56,9 +62,9 @@
   background:radial-gradient(38vw 30vh at 14% 78%,rgba(245,120,165,.22),transparent 70%),radial-gradient(36vw 30vh at 72% 22%,rgba(110,140,255,.2),transparent 70%),radial-gradient(30vw 26vh at 48% 60%,rgba(120,140,255,.14),transparent 70%),var(--bg)}
 .landing .pview::before{content:"";position:absolute;inset:0;background-image:radial-gradient(#b8c0f0 38%,transparent 42%);background-size:12px 12px;opacity:.5;-webkit-mask-image:radial-gradient(ellipse 55% 50% at 45% 55%,#000,transparent 80%);mask-image:radial-gradient(ellipse 55% 50% at 45% 55%,#000,transparent 80%)}
 .landing #sparks{position:absolute;inset:0;width:100%;height:100%}
-.landing .pview h2{position:absolute;left:clamp(1.2rem,4.2vw,4.5rem);top:calc(5rem + env(safe-area-inset-top,0px));margin:0;font-weight:300;font-size:clamp(1.9rem,4.4vw,4.6rem);letter-spacing:-.01em;line-height:1.05}
+.landing .pview h2{position:absolute;left:calc(var(--sidebar-offset, 208px) + clamp(1rem, 2.5vw, 3rem));top:calc(5rem + env(safe-area-inset-top,0px));margin:0;font-weight:300;font-size:clamp(1.9rem,4.4vw,4.6rem);letter-spacing:-.01em;line-height:1.05}
 .landing .pview .tag{position:absolute;right:clamp(1.2rem,4.2vw,4.5rem);top:5.6rem;display:flex;gap:5rem;font-size:.62rem;font-weight:400}
-.landing .pview .pl{position:absolute;left:clamp(1.2rem,4.2vw,4.5rem);bottom:6vh;max-width:21rem;margin:0;font-size:.72rem;font-weight:400;color:var(--mute)}
+.landing .pview .pl{position:absolute;left:calc(var(--sidebar-offset, 208px) + clamp(1rem, 2.5vw, 3rem));bottom:6vh;max-width:21rem;margin:0;font-size:.72rem;font-weight:400;color:var(--mute)}
 .landing .pview .pr{position:absolute;right:clamp(1.2rem,4.2vw,4.5rem);bottom:5vh;margin:0;text-align:right;font-weight:300;font-size:clamp(1.8rem,3.8vw,4rem);line-height:1.05}
 .landing .pview .pr b{display:block;font-weight:400}
 .landing #future{position:relative;height:120vh}

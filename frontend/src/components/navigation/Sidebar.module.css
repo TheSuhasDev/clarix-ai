@@ -6,17 +6,17 @@
   bottom: 16px;
   left: 16px;
   height: calc(100vh - 32px);
-  width: var(--sidebar-w-expanded, 200px);
-  padding: 12px 10px;
+  width: var(--sidebar-w-expanded, 176px);
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   color: var(--glass-text);
   background: var(--glass-bg);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid var(--glass-border);
-  border-radius: 20px;
+  border-radius: 18px;
   box-shadow: var(--glass-shadow);
   transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
@@ -25,8 +25,8 @@
 }
 
 .sidebar.collapsed {
-  width: var(--sidebar-w-collapsed, 64px);
-  padding: 12px 8px;
+  width: var(--sidebar-w-collapsed, 60px);
+  padding: 10px 6px;
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-reduced-motion: reduce) {
@@ -50,9 +50,9 @@
 .top {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 40px;
-  margin-bottom: 6px;
+  gap: 6px;
+  height: 38px;
+  margin-bottom: 4px;
   flex: none;
   width: 100%;
   position: relative;
@@ -65,15 +65,15 @@
 .logoBtn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 40px;
+  gap: 6px;
+  height: 38px;
   cursor: pointer;
   background: none;
   border: 0;
   padding: 0;
   text-align: left;
   outline: none;
-  border-radius: 12px;
+  border-radius: 10px;
   color: inherit;
   flex: 1;
   min-width: 0;
@@ -81,21 +81,21 @@
 
 .sidebar.collapsed .logoBtn {
   flex: none;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   justify-content: center;
 }
 
 .logoBtn:focus-visible {
   outline: 2px solid var(--blue);
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
 
 .mark {
   flex: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
   background: linear-gradient(135deg, rgba(16, 207, 224, 0.95), rgba(37, 99, 255, 0.95));
@@ -105,8 +105,8 @@
 }
 
 .sidebar.collapsed .mark {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
 }
 
 .logoBtn:hover .mark,
@@ -116,7 +116,7 @@
 
 .brand {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14.5px;
   white-space: nowrap;
   overflow: hidden;
   color: var(--glass-text);
@@ -128,8 +128,8 @@
 .chev {
   margin-left: auto;
   flex: none;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 1px solid var(--glass-border);
   background: var(--glass-hover);
@@ -138,7 +138,7 @@
   place-items: center;
   cursor: pointer;
   padding: 0;
-  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
   outline: none;
 }
 
@@ -159,56 +159,105 @@
   position: absolute;
 }
 
-/* Scrollable items list (hidden scrollbar) */
+/* Scrollable items list */
 .list {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(53, 92, 154, 0.2) transparent;
 }
 
 .list::-webkit-scrollbar {
-  display: none;
+  width: 4px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  background: rgba(53, 92, 154, 0.2);
+  border-radius: 4px;
 }
 
 /* Grouping / Sections */
 .section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 6px 8px 3px;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 6px;
+  outline: none;
+  transition: background 0.2s ease;
+}
+
+.sectionHeader:hover {
+  background: var(--glass-hover);
+}
+
+.sectionHeader:focus-visible {
+  outline: 1.5px solid var(--blue);
 }
 
 .sectionLabel {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--glass-text-muted);
-  padding: 10px 14px 2px;
   white-space: nowrap;
   overflow: hidden;
   transition: opacity 0.25s ease;
 }
 
+.sectionChevron {
+  width: 11px;
+  height: 11px;
+  color: var(--glass-text-muted);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  flex: none;
+}
+
+.sectionChevronClosed {
+  transform: rotate(-90deg);
+}
+
+.sectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: opacity 0.2s ease;
+}
+
+.sectionBodyClosed {
+  display: none;
+}
+
 .divider {
   height: 1px;
-  background: var(--line, rgba(53, 92, 154, 0.16));
-  margin: 6px 10px;
+  background: var(--line, rgba(53, 92, 154, 0.14));
+  margin: 4px 6px;
   border-radius: 1px;
   transition: opacity 0.25s ease;
 }
 
-.sidebar.collapsed .sectionLabel,
+.sidebar.collapsed .sectionHeader,
 .sidebar.collapsed .divider {
-  opacity: 0;
-  pointer-events: none;
+  display: none;
 }
 
 /* Base navigation row */
@@ -217,14 +266,15 @@
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: 38px;
-  padding: 0 10px;
-  border-radius: 12px;
+  padding: 0 8px;
+  border-radius: 10px;
   color: var(--glass-text);
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
   transition: color 0.2s ease, opacity 0.2s ease;
@@ -256,16 +306,17 @@
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   transition: opacity 0.25s ease;
 }
 
 .sidebar.collapsed .row {
   padding: 0;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   margin: 0 auto;
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .sidebar.collapsed .row > span {
@@ -274,18 +325,19 @@
   position: absolute;
 }
 
+/* Tooltip on hover in collapsed mode */
 .sidebar.collapsed .row:hover::after,
 .sidebar.collapsed .logoBtn:hover::after {
   content: attr(data-tooltip);
   position: fixed;
-  left: 78px;
+  left: 72px;
   background: rgba(15, 23, 42, 0.94);
   color: #f8fafc;
   font-family: var(--font-sans);
   font-size: 11.5px;
   font-weight: 600;
-  padding: 5px 10px;
-  border-radius: 8px;
+  padding: 5px 9px;
+  border-radius: 7px;
   white-space: nowrap;
   pointer-events: none;
   z-index: 9999;
@@ -294,8 +346,8 @@
 }
 
 .sidebar.collapsed .foot .row {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   margin: 0 auto;
 }
 
@@ -304,13 +356,13 @@
   display: grid;
   place-items: center;
   flex: none;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 
 .iconWrap svg {
-  width: 19px;
-  height: 19px;
+  width: 18px;
+  height: 18px;
   stroke-width: 2.2;
 }
 
@@ -323,12 +375,12 @@
   background: var(--glass-active);
   border: 1px solid var(--glass-border-active);
   box-shadow: var(--glass-hl-shadow);
-  border-radius: 16px;
+  border-radius: 12px;
   pointer-events: none;
   opacity: 0;
-  transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.2, 1),
-    width 0.3s cubic-bezier(0.2, 0.9, 0.2, 1),
-    height 0.3s cubic-bezier(0.2, 0.9, 0.2, 1),
+  transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.2, 1),
+    width 0.28s cubic-bezier(0.2, 0.9, 0.2, 1),
+    height 0.28s cubic-bezier(0.2, 0.9, 0.2, 1),
     opacity 0.2s ease,
     border-radius 0.2s ease;
   will-change: transform, width, height, opacity;
@@ -357,13 +409,18 @@
 /* Badges in expanded mode */
 .badge {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  padding: 2px 7px;
+  padding: 1px 5px;
   border-radius: 999px;
   letter-spacing: 0.04em;
   margin-left: auto;
   border: 1px solid transparent;
+  max-width: 36px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition: opacity 0.25s ease;
 }
 
@@ -415,9 +472,9 @@
 
 /* Parent accordion chevron */
 .parentChevron {
-  width: 14px;
-  height: 14px;
-  stroke-width: 2.4;
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.2;
   margin-left: auto;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
   flex: none;
@@ -438,7 +495,7 @@
 .subGroupWrapper {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
 
@@ -454,8 +511,8 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 3px 0 3px 18px;
+  gap: 2px;
+  padding: 2px 0 2px 14px;
 }
 
 .subRow {
@@ -463,13 +520,13 @@
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: 34px;
-  padding: 0 12px;
-  border-radius: 12px;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
   color: var(--glass-text-muted);
   font-family: var(--font-sans);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
@@ -488,15 +545,50 @@
 }
 
 .subRow svg {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   stroke-width: 2.2;
 }
 
 /* Pinned Footer */
 .foot {
   margin-top: auto;
-  padding-top: 8px;
-  border-top: 1px solid var(--line, rgba(53, 92, 154, 0.16));
+  padding-top: 6px;
+  border-top: 1px solid var(--line, rgba(53, 92, 154, 0.14));
   flex: none;
+}
+
+/* Mobile Off-canvas Drawer under 900px */
+@media (max-width: 900px) {
+  .sidebar {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    height: 100vh;
+    height: 100dvh;
+    width: 220px !important;
+    border-radius: 0 18px 18px 0;
+    transform: translateX(-105%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    box-shadow: none;
+  }
+
+  .sidebar.drawerOpen {
+    transform: translateX(0);
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.35);
+  }
+
+  .sidebar.collapsed {
+    width: 220px !important;
+  }
+
+  .drawerBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 15, 30, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 999;
+  }
 }

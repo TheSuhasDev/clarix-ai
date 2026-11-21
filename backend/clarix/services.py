@@ -93,10 +93,23 @@ def overview(ctx, req):
         r = ctx.db.one("SELECT COUNT(*) n, SUM(decision='BLOCK') b FROM requests WHERE component='agent' AND ts>=? AND ts<?", (lo, lo + 14400))
         buckets.append({"h": f"{int(clock(lo)[:2]):02d}h", "runs": r["n"], "blocked": r["b"] or 0})
     events = [_event(e) for e in reversed(ctx.audit.list(12))]
+
+    clarix_outbound = 0
+    try:
+        import psutil, os
+        p = psutil.Process(os.getpid())
+        get_conns = getattr(p, "net_connections", p.connections)
+        clarix_conns = [c for c in get_conns() if c.status == "ESTABLISHED" and hasattr(c, "raddr") and c.raddr and not (c.raddr.ip.startswith("127.") or c.raddr.ip == "::1")]
+        clarix_outbound = len(clarix_conns)
+    except Exception:
+        clarix_outbound = 0
+    blocked_egress = ctx.db.one("SELECT COUNT(*) n FROM blocked_connections")["n"] if hasattr(ctx, "db") else 0
+
     return {"agent": {"status": "RUNNING", "note": "Request pipeline active"}, "ollama": ollama,
             "threats": ctx.threats.count(), "blocked": ctx.db.one("SELECT COUNT(*) n FROM audit_events WHERE decision='BLOCK'")["n"],
             "toolCalls": int(ctx.metrics.get("tool.calls")), "pendingApprovals": ctx.approvals.pending_count(), "auditEvents": ctx.audit.count(),
-            "outbound": posture["outbound"], "activePolicies": sum(p["enabled"] for p in pols), "totalPolicies": len(pols),
+            "outbound": posture["outbound"], "clarixOutbound": clarix_outbound, "blockedEgress": blocked_egress,
+            "activePolicies": sum(p["enabled"] for p in pols), "totalPolicies": len(pols),
             "events": _live_events(ctx) + events, "activity": buckets, "threatCats": ctx.threats.categories(),
             "airGap": {"status": posture["status"], "reasons": posture["reasons"]}}
 
@@ -152,6 +165,10 @@ def airgap_get(ctx, req):
         p["warning"] = "Host network posture is NOT_ISOLATED. OS-level firewall rules (deploy/nftables-airgap.conf) are recommended."
     return {"series": ctx.telemetry.egress_series(), "posture": p,
             "log": [{"time": clock(r["ts"]), "host": r["host"], "port": r["port"], "protocol": r["protocol"], "subsystem": r["subsystem"], "rule": r["rule"]} for r in reversed(log_rows)]}
+
+
+def airgap_posture(ctx, req):
+    return monitor.posture(guard.status())
 
 
 def airgap_probe(ctx, req):

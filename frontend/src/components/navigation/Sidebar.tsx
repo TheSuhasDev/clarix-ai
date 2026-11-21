@@ -11,6 +11,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import { ChevronDown, ChevronLeft } from 'lucide-react';
 import { ClarixMark } from '../common/ClarixMark';
+import { useConsole } from '../../state/ConsoleContext';
 import styles from './Sidebar.module.css';
 
 export interface SidebarBadge {
@@ -86,6 +87,7 @@ export function Sidebar({
 }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { drawerOpen, setDrawerOpen } = useConsole();
   const isControlled = controlledCollapsed !== undefined;
 
   const [internalCollapsed, setInternalCollapsed] = useState<boolean>(() => {
@@ -123,9 +125,39 @@ export function Sidebar({
     [normalizedSections, settingsItem]
   );
 
-  // Group accordion expansion state
+  // Group accordion expansion state (for sections)
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  // Auto-expand group containing current route
+  useEffect(() => {
+    for (const sec of normalizedSections) {
+      if (!sec.label) continue;
+      const hasActive = sec.items.some(
+        (it) => it.href === location.pathname || (it.href !== '/' && location.pathname.startsWith(it.href))
+      );
+      if (hasActive) {
+        setCollapsedGroups((prev) => {
+          if (prev[sec.label]) {
+            const next = { ...prev };
+            delete next[sec.label];
+            return next;
+          }
+          return prev;
+        });
+      }
+    }
+  }, [location.pathname, normalizedSections]);
+
+  const toggleGroup = (groupLabel: string) => {
+    setCollapsedGroups((prev) => ({
+      ...prev,
+      [groupLabel]: !prev[groupLabel],
+    }));
+  };
+
+  // Sub-item expansion state
   const isNetworkSubRoute = location.pathname.startsWith('/network/');
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => ({
+  const [expandedSubGroups, setExpandedSubGroups] = useState<Record<string, boolean>>(() => ({
     network: isNetworkSubRoute,
   }));
 
@@ -175,8 +207,8 @@ export function Sidebar({
     }
 
     if (
-      itemRect.bottom < sidebarRect.top + 44 ||
-      itemRect.top > sidebarRect.bottom - 44
+      itemRect.bottom < sidebarRect.top + 40 ||
+      itemRect.top > sidebarRect.bottom - 40
     ) {
       hlRef.current.style.opacity = '0';
       return;
@@ -190,13 +222,13 @@ export function Sidebar({
     hlRef.current.style.transform = `translate3d(${x}px, ${y}px, 0)`;
     hlRef.current.style.width = `${w}px`;
     hlRef.current.style.height = `${h}px`;
-    hlRef.current.style.borderRadius = activeEl.dataset.subItem ? '12px' : '16px';
+    hlRef.current.style.borderRadius = activeEl.dataset.subItem ? '10px' : '12px';
     hlRef.current.style.opacity = '1';
   }, [resolvedActiveKey]);
 
   useEffect(() => {
     measureHighlight();
-  }, [measureHighlight, isCollapsed, expandedGroups]);
+  }, [measureHighlight, isCollapsed, collapsedGroups, expandedSubGroups]);
 
   // Re-measure on window resize, list scroll, font loading, and layout changes
   useEffect(() => {
@@ -230,7 +262,7 @@ export function Sidebar({
   }, [measureHighlight]);
 
   const handleTransitionEnd = (e: React.TransitionEvent<HTMLElement>) => {
-    if (e.propertyName === 'width') {
+    if (e.propertyName === 'width' || e.propertyName === 'transform') {
       measureHighlight();
     }
   };
@@ -260,214 +292,259 @@ export function Sidebar({
       if (hasChildren) {
         e.preventDefault();
         setCollapsed(false);
-        setExpandedGroups((prev) => ({ ...prev, [item.key]: true }));
+        setExpandedSubGroups((prev) => ({ ...prev, [item.key]: true }));
         navigate(item.href);
+        setDrawerOpen(false);
         return;
       }
     } else if (hasChildren) {
       const isCurrentGroup = location.pathname.startsWith(item.href);
       if (isCurrentGroup) {
         e.preventDefault();
-        setExpandedGroups((prev) => ({ ...prev, [item.key]: !prev[item.key] }));
+        setExpandedSubGroups((prev) => ({ ...prev, [item.key]: !prev[item.key] }));
       } else {
-        setExpandedGroups((prev) => ({ ...prev, [item.key]: true }));
+        setExpandedSubGroups((prev) => ({ ...prev, [item.key]: true }));
       }
     }
 
+    setDrawerOpen(false);
     onSelect?.(item.key);
   };
 
-  const asideContent = (
-    <aside
-      ref={sidebarRef}
-      className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''}`}
-      aria-label="Console navigation"
-      onTransitionEnd={handleTransitionEnd}
-    >
-      {/* Single sliding active highlight pill */}
-      <div ref={hlRef} className={styles.hl} aria-hidden="true" />
+  return (
+    <>
+      {drawerOpen && (
+        <div
+          className={styles.drawerBackdrop}
+          onClick={() => setDrawerOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        ref={sidebarRef}
+        className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''} ${
+          drawerOpen ? styles.drawerOpen : ''
+        }`}
+        aria-label="Navigation"
+        onTransitionEnd={handleTransitionEnd}
+      >
+        {/* Single sliding active highlight pill */}
+        <div ref={hlRef} className={styles.hl} aria-hidden="true" />
 
-      {/* Top Header: Logo button (expands when collapsed) + Collapse button */}
-      <div className={styles.top}>
-        <button
-          type="button"
-          className={styles.logoBtn}
-          onClick={handleTopClick}
-          onKeyDown={handleTopKeyDown}
-          tabIndex={isCollapsed ? 0 : -1}
-          aria-label={isCollapsed ? 'Expand sidebar' : 'Clarix navigation'}
-          aria-expanded={!isCollapsed}
-          data-tooltip={isCollapsed ? 'Clarix (Expand)' : undefined}
-          title={isCollapsed ? 'Clarix (Expand)' : undefined}
-        >
-          <div className={styles.mark} aria-hidden="true">
-            <ClarixMark size={22} />
-          </div>
-          <span className={styles.brand}>Clarix</span>
-        </button>
-        <button
-          type="button"
-          className={styles.chev}
-          onClick={handleChevClick}
-          aria-label="Collapse sidebar"
-          tabIndex={isCollapsed ? -1 : 0}
-        >
-          <ChevronLeft width={14} height={14} strokeWidth={2.8} />
-        </button>
-      </div>
+        {/* Top Header: Logo button (expands when collapsed) + Collapse button */}
+        <div className={styles.top}>
+          <button
+            type="button"
+            className={styles.logoBtn}
+            onClick={handleTopClick}
+            onKeyDown={handleTopKeyDown}
+            tabIndex={isCollapsed ? 0 : -1}
+            aria-label={isCollapsed ? 'Expand sidebar' : 'Clarix navigation'}
+            aria-expanded={!isCollapsed}
+            data-tooltip={isCollapsed ? 'Clarix (Expand)' : undefined}
+            title={isCollapsed ? 'Clarix (Expand)' : undefined}
+          >
+            <div className={styles.mark} aria-hidden="true">
+              <ClarixMark size={20} />
+            </div>
+            <span className={styles.brand}>Clarix</span>
+          </button>
+          <button
+            type="button"
+            className={styles.chev}
+            onClick={handleChevClick}
+            aria-label="Collapse sidebar"
+            tabIndex={isCollapsed ? -1 : 0}
+          >
+            <ChevronLeft width={13} height={13} strokeWidth={2.8} />
+          </button>
+        </div>
 
-      {/* Grouped navigation list */}
-      <div ref={listRef} className={styles.list}>
-        {normalizedSections.map((sec, secIdx) => (
-          <div key={sec.label || secIdx} className={styles.section}>
-            {secIdx > 0 && <div className={styles.divider} aria-hidden="true" />}
-            {sec.label && <div className={styles.sectionLabel}>{sec.label}</div>}
-            {sec.items.map((item) => {
-              const hasChildren = Boolean(item.children && item.children.length > 0);
-              const isGroupExpanded = Boolean(expandedGroups[item.key]);
-              const isGroupActive = hasChildren && location.pathname.startsWith(item.href);
-
-              const isActive = isCollapsed
-                ? isGroupActive || item.key === resolvedActiveKey
-                : item.key === resolvedActiveKey;
-
-              const isParentActive = hasChildren && !isCollapsed && isGroupActive;
-              const Icon = item.icon;
-
-              return (
-                <div key={item.key} style={{ display: 'contents' }}>
-                  <Link
-                    to={item.href}
-                    ref={(el) => {
-                      itemRefs.current[item.key] = el;
-                    }}
-                    className={`${styles.row} ${isParentActive ? styles.rowParentActive : ''}`}
-                    title={isCollapsed ? (item.badge ? `${item.label} (${item.badge.text})` : item.label) : undefined}
-                    data-tooltip={isCollapsed ? (item.badge ? `${item.label} (${item.badge.text})` : item.label) : undefined}
-                    aria-current={isActive && !isParentActive ? 'page' : undefined}
-                    aria-expanded={hasChildren ? isGroupExpanded : undefined}
-                    aria-controls={hasChildren ? `subgroup-${item.key}` : undefined}
-                    onClick={(e) => handleItemClick(e, item)}
+        {/* Grouped navigation list */}
+        <div ref={listRef} className={styles.list}>
+          {normalizedSections.map((sec, secIdx) => {
+            const isGroupCollapsed = Boolean(collapsedGroups[sec.label]);
+            return (
+              <div key={sec.label || secIdx} className={styles.section}>
+                {secIdx > 0 && <div className={styles.divider} aria-hidden="true" />}
+                {sec.label && (
+                  <button
+                    type="button"
+                    className={styles.sectionHeader}
+                    onClick={() => toggleGroup(sec.label)}
+                    aria-expanded={!isGroupCollapsed}
+                    aria-label={`${sec.label} section`}
                   >
-                    <div className={styles.iconWrap}>
-                      <Icon aria-hidden="true" />
-                      {item.badge && (
-                        <span
-                          className={`${styles.statusDot} ${styles[item.badge.tone]}`}
-                          aria-hidden="true"
-                        />
-                      )}
-                    </div>
-                    <span>{item.label}</span>
-                    {item.badge && (
-                      <span className={`${styles.badge} ${styles[item.badge.tone]}`}>
-                        {item.badge.text}
-                      </span>
-                    )}
-                    {hasChildren && (
-                      <ChevronDown
-                        className={`${styles.parentChevron} ${
-                          isGroupExpanded ? styles.parentChevronExpanded : ''
-                        }`}
+                    <span className={styles.sectionLabel}>{sec.label}</span>
+                    <ChevronDown
+                      className={`${styles.sectionChevron} ${
+                        isGroupCollapsed ? styles.sectionChevronClosed : ''
+                      }`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                )}
+
+                <div
+                  className={`${styles.sectionBody} ${
+                    isGroupCollapsed && !isCollapsed ? styles.sectionBodyClosed : ''
+                  }`}
+                >
+                  {sec.items.map((item) => {
+                    const hasChildren = Boolean(item.children && item.children.length > 0);
+                    const isSubExpanded = Boolean(expandedSubGroups[item.key]);
+                    const isSubActive = hasChildren && location.pathname.startsWith(item.href);
+
+                    const isActive = isCollapsed
+                      ? isSubActive || item.key === resolvedActiveKey
+                      : item.key === resolvedActiveKey;
+
+                    const isParentActive = hasChildren && !isCollapsed && isSubActive;
+                    const Icon = item.icon;
+
+                    return (
+                      <div key={item.key} style={{ display: 'contents' }}>
+                        <Link
+                          to={item.href}
+                          ref={(el) => {
+                            itemRefs.current[item.key] = el;
+                          }}
+                          className={`${styles.row} ${isParentActive ? styles.rowParentActive : ''}`}
+                          title={item.badge ? `${item.label} (${item.badge.text})` : item.label}
+                          data-tooltip={item.badge ? `${item.label} (${item.badge.text})` : item.label}
+                          aria-current={isActive && !isParentActive ? 'page' : undefined}
+                          aria-expanded={hasChildren ? isSubExpanded : undefined}
+                          aria-controls={hasChildren ? `subgroup-${item.key}` : undefined}
+                          onClick={(e) => handleItemClick(e, item)}
+                        >
+                          <div className={styles.iconWrap}>
+                            <Icon aria-hidden="true" />
+                            {item.badge && (
+                              <span
+                                className={`${styles.statusDot} ${styles[item.badge.tone]}`}
+                                aria-hidden="true"
+                              />
+                            )}
+                          </div>
+                          <span>{item.label}</span>
+                          {item.badge && (
+                            <span className={`${styles.badge} ${styles[item.badge.tone]}`}>
+                              {item.badge.text}
+                            </span>
+                          )}
+                          {hasChildren && (
+                            <ChevronDown
+                              className={`${styles.parentChevron} ${
+                                isSubExpanded ? styles.parentChevronExpanded : ''
+                              }`}
+                              aria-hidden="true"
+                            />
+                          )}
+                        </Link>
+
+                        {/* Sub-items accordion if any */}
+                        {hasChildren && (
+                          <div
+                            id={`subgroup-${item.key}`}
+                            className={`${styles.subGroupWrapper} ${
+                              isSubExpanded ? styles.subGroupWrapperOpen : ''
+                            }`}
+                            onTransitionEnd={(e) => {
+                              if (e.target === e.currentTarget) {
+                                measureHighlight();
+                              }
+                            }}
+                            role="region"
+                            aria-label={`${item.label} sub-navigation`}
+                          >
+                            <div className={styles.subGroupInner}>
+                              {item.children!.map((child) => {
+                                const isChildActive = child.key === resolvedActiveKey;
+                                const ChildIcon = child.icon;
+                                return (
+                                  <Link
+                                    key={child.key}
+                                    to={child.href}
+                                    ref={(el) => {
+                                      itemRefs.current[child.key] = el;
+                                    }}
+                                    data-sub-item="true"
+                                    className={styles.subRow}
+                                    title={child.badge ? `${child.label} (${child.badge.text})` : child.label}
+                                    data-tooltip={child.badge ? `${child.label} (${child.badge.text})` : child.label}
+                                    aria-current={isChildActive ? 'page' : undefined}
+                                    onClick={() => {
+                                      setDrawerOpen(false);
+                                      onSelect?.(child.key);
+                                    }}
+                                  >
+                                    <ChildIcon aria-hidden="true" />
+                                    <span>{child.label}</span>
+                                    {child.badge && (
+                                      <span
+                                        className={`${styles.badge} ${styles[child.badge.tone]}`}
+                                      >
+                                        {child.badge.text}
+                                      </span>
+                                    )}
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Pinned Settings item */}
+        {settingsItem && (
+          <div className={styles.foot}>
+            {(() => {
+              const isActive = settingsItem.key === resolvedActiveKey;
+              const Icon = settingsItem.icon;
+              return (
+                <Link
+                  key={settingsItem.key}
+                  to={settingsItem.href}
+                  ref={(el) => {
+                    itemRefs.current[settingsItem.key] = el;
+                  }}
+                  className={styles.row}
+                  title={settingsItem.label}
+                  data-tooltip={settingsItem.label}
+                  aria-current={isActive ? 'page' : undefined}
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    onSelect?.(settingsItem.key);
+                  }}
+                >
+                  <div className={styles.iconWrap}>
+                    <Icon aria-hidden="true" />
+                    {settingsItem.badge && (
+                      <span
+                        className={`${styles.statusDot} ${styles[settingsItem.badge.tone]}`}
                         aria-hidden="true"
                       />
                     )}
-                  </Link>
-
-                  {/* Sub-items accordion if any */}
-                  {hasChildren && (
-                    <div
-                      id={`subgroup-${item.key}`}
-                      className={`${styles.subGroupWrapper} ${
-                        isGroupExpanded ? styles.subGroupWrapperOpen : ''
-                      }`}
-                      onTransitionEnd={(e) => {
-                        if (e.target === e.currentTarget) {
-                          measureHighlight();
-                        }
-                      }}
-                      role="region"
-                      aria-label={`${item.label} sub-navigation`}
-                    >
-                      <div className={styles.subGroupInner}>
-                        {item.children!.map((child) => {
-                          const isChildActive = child.key === resolvedActiveKey;
-                          const ChildIcon = child.icon;
-                          return (
-                            <Link
-                              key={child.key}
-                              to={child.href}
-                              ref={(el) => {
-                                itemRefs.current[child.key] = el;
-                              }}
-                              data-sub-item="true"
-                              className={styles.subRow}
-                              aria-current={isChildActive ? 'page' : undefined}
-                              onClick={() => onSelect?.(child.key)}
-                            >
-                              <ChildIcon aria-hidden="true" />
-                              <span>{child.label}</span>
-                              {child.badge && (
-                                <span
-                                  className={`${styles.badge} ${styles[child.badge.tone]}`}
-                                >
-                                  {child.badge.text}
-                                </span>
-                              )}
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-
-      {/* Pinned Settings item */}
-      {settingsItem && (
-        <div className={styles.foot}>
-          {(() => {
-            const isActive = settingsItem.key === resolvedActiveKey;
-            const Icon = settingsItem.icon;
-            return (
-              <Link
-                key={settingsItem.key}
-                to={settingsItem.href}
-                ref={(el) => {
-                  itemRefs.current[settingsItem.key] = el;
-                }}
-                className={styles.row}
-                title={isCollapsed ? settingsItem.label : undefined}
-                data-tooltip={isCollapsed ? settingsItem.label : undefined}
-                aria-current={isActive ? 'page' : undefined}
-                onClick={() => onSelect?.(settingsItem.key)}
-              >
-                <div className={styles.iconWrap}>
-                  <Icon aria-hidden="true" />
+                  </div>
+                  <span>{settingsItem.label}</span>
                   {settingsItem.badge && (
-                    <span
-                      className={`${styles.statusDot} ${styles[settingsItem.badge.tone]}`}
-                      aria-hidden="true"
-                    />
+                    <span className={`${styles.badge} ${styles[settingsItem.badge.tone]}`}>
+                      {settingsItem.badge.text}
+                    </span>
                   )}
-                </div>
-                <span>{settingsItem.label}</span>
-                {settingsItem.badge && (
-                  <span className={`${styles.badge} ${styles[settingsItem.badge.tone]}`}>
-                    {settingsItem.badge.text}
-                  </span>
-                )}
-              </Link>
-            );
-          })()}
-        </div>
-      )}
-    </aside>
+                </Link>
+              );
+            })()}
+          </div>
+        )}
+      </aside>
+    </>
   );
-
-  return asideContent;
 }

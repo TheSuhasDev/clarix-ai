@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { PillNav } from '../components/navigation/PillNav';
+import { Menu } from 'lucide-react';
+import { Sidebar } from '../components/navigation/Sidebar';
+import { SIDEBAR_SETTINGS_ITEM, useSidebarSections } from '../components/navigation/navItems';
+import { useConsole } from '../state/ConsoleContext';
 import { ROBOTS } from '../utils/assets';
 import { clamp, ease, show, win } from './anim';
 import { useRafScroll } from './useRafScroll';
@@ -327,15 +330,31 @@ function Future() {
 
 /* ---------------- page ---------------- */
 export default function Landing() {
+  const { sidebarCollapsed, setSidebarCollapsed, drawerOpen, setDrawerOpen } = useConsole();
+  const sections = useSidebarSections();
+
   useEffect(() => {
     document.title = 'Clarix — AI you can trust with classified documents';
   }, []);
 
   return (
-    <div className="landing">
+    <div className={`landing ${sidebarCollapsed ? 'collapsed' : ''}`}>
       <RobotBackdrop />
+      <Sidebar
+        sections={sections}
+        settingsItem={SIDEBAR_SETTINGS_ITEM}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+      />
       <header className="top">
-        <PillNav />
+        <button
+          type="button"
+          className="landing-drawer-btn"
+          onClick={() => setDrawerOpen(!drawerOpen)}
+          aria-label={drawerOpen ? 'Close navigation drawer' : 'Open navigation drawer'}
+        >
+          <Menu size={20} />
+        </button>
       </header>
       <main>
         <Story />

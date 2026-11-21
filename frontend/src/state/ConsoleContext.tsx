@@ -20,6 +20,12 @@ export const DEFAULT_SETTINGS: Settings = {
 export type ToastTone = 'green' | 'red' | 'blue' | 'amber';
 interface Toast { id: string; tone: ToastTone; text: string }
 
+export interface AirGapPosture {
+  status: 'ISOLATED' | 'NOT_ISOLATED' | 'UNKNOWN';
+  reasons: string[];
+  outbound: number | null;
+}
+
 interface Counts { pendingApprovals: number; threats: number }
 
 const SIDEBAR_STORAGE_KEY = 'clarix.sidebar.collapsed';
@@ -56,12 +62,15 @@ interface ConsoleValue {
   resetSettings: () => void;
   counts: Counts;
   refreshCounts: () => void;
+  airGapStatus: AirGapPosture;
   liveEvents: SecurityEvent[];
   toasts: Toast[];
   toast: (text: string, tone?: ToastTone) => void;
   dismissToast: (id: string) => void;
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  drawerOpen: boolean;
+  setDrawerOpen: (open: boolean) => void;
   performanceMode: boolean;
   setPerformanceMode: (enabled: boolean) => void;
 }
@@ -78,9 +87,15 @@ const HEARTBEATS: Omit<SecurityEvent, 'id' | 'time'>[] = [
 export function ConsoleProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useLocalStorage<Settings>('clarix.settings.v1', DEFAULT_SETTINGS);
   const [counts, setCounts] = useState<Counts>({ pendingApprovals: 0, threats: 0 });
+  const [airGapStatus, setAirGapStatus] = useState<AirGapPosture>({
+    status: 'ISOLATED',
+    reasons: [],
+    outbound: 0,
+  });
   const [liveEvents, setLiveEvents] = useState<SecurityEvent[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState<boolean>(getInitialSidebarCollapsed);
+  const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [performanceMode, setPerformanceModeState] = useState<boolean>(getInitialPerformanceMode);
 
   const setSidebarCollapsed = useCallback((collapsed: boolean) => {
@@ -120,7 +135,16 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
 
   const refreshCounts = useCallback(() => {
     overviewService.get().then(
-      (o) => setCounts({ pendingApprovals: o.pendingApprovals, threats: o.threats }),
+      (o) => {
+        setCounts({ pendingApprovals: o.pendingApprovals, threats: o.threats });
+        if (o.airGap) {
+          setAirGapStatus({
+            status: (o.airGap.status as any) || 'ISOLATED',
+            reasons: o.airGap.reasons || [],
+            outbound: o.outbound ?? null,
+          });
+        }
+      },
       () => { /* keep previous counts; pages show their own error states */ },
     );
   }, []);
@@ -147,12 +171,15 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
     resetSettings,
     counts,
     refreshCounts,
+    airGapStatus,
     liveEvents,
     toasts,
     toast,
     dismissToast,
     sidebarCollapsed,
     setSidebarCollapsed,
+    drawerOpen,
+    setDrawerOpen,
     performanceMode,
     setPerformanceMode,
   }), [
@@ -161,12 +188,15 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
     resetSettings,
     counts,
     refreshCounts,
+    airGapStatus,
     liveEvents,
     toasts,
     toast,
     dismissToast,
     sidebarCollapsed,
     setSidebarCollapsed,
+    drawerOpen,
+    setDrawerOpen,
     performanceMode,
     setPerformanceMode,
   ]);

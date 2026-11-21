@@ -9,6 +9,7 @@ ROUTES: list[Route] = [
     Route("POST", "/api/security/analyze", s.analyze, "Score a prompt with the injection detector", "security", rate="analyze"),
     Route("GET", "/api/security/monitor", s.security_monitor, "Hourly decisions + live events", "security"),
     Route("GET", "/api/airgap", s.airgap_get, "Egress series, blocked log and host posture", "airgap"),
+    Route("GET", "/api/airgap/posture", s.airgap_posture, "Host air-gap posture status", "airgap"),
     Route("POST", "/api/airgap/probe", s.airgap_probe, "Attempt a connection through the guard (never reaches the network)", "airgap"),
     Route("POST", "/api/taint/scenario", s.taint_scenario, "Run a real taint/sink block scenario", "taint"),
     Route("GET", "/api/policies", s.policies_list, "List policies", "policy"),

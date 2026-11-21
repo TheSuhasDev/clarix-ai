@@ -12,6 +12,8 @@ export interface OverviewData {
   auditEvents: number;
   /** null = the host could not be inspected */
   outbound: number | null;
+  clarixOutbound?: number;
+  blockedEgress?: number;
   airGap?: { status: string; reasons: string[] };
   activePolicies: number;
   totalPolicies: number;

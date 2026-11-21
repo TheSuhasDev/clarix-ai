@@ -44,44 +44,64 @@ export default function Overview() {
             <Kpi icon={<Cpu color="#0a9f73" />} label="Ollama LLM" value={data.ollama.status} tone="green" note={data.ollama.note} />
             {data.airGap && data.airGap.status !== 'ISOLATED'
               ? <Kpi icon={<WifiOff color="#c07a00" />} label="Internet" value={data.airGap.status === 'UNKNOWN' ? 'UNKNOWN' : 'NOT ISOLATED'} tone="amber" note={data.airGap.reasons[0] ?? 'Host posture could not be confirmed'} onClick={() => nav('/air-gap')} />
-              : <Kpi icon={<WifiOff color="#d92f59" />} label="Internet" value="BLOCKED" tone="red" note="Zero WAN socket egress" tint="red" />}
+              : <Kpi icon={<WifiOff color="#0a9f73" />} label="Internet" value="ISOLATED" tone="green" note="Zero WAN socket egress" onClick={() => nav('/air-gap')} />}
             <Kpi icon={<ShieldCheck color="#0a9f73" />} label="Policy engine" value="ACTIVE" tone="green" note={`${data.activePolicies} of ${data.totalPolicies} rules enforced`} />
-            <Kpi icon={<Flame color="#d92f59" />} label="Threats detected" value={data.threats} tone="red" note="Ingress injections flagged" onClick={() => nav('/prompt-injection')} />
-            <Kpi icon={<Ban color="#d92f59" />} label="Requests blocked" value={data.blocked} tone="red" note="Policy enforcement drops" onClick={() => nav('/audit')} />
+            <Kpi icon={<Flame color="#d92f59" />} label="Threats detected" value={data.threats} tone="red" note="Prompt injections & adversarial probes" onClick={() => nav('/prompt-injection')} />
+            <Kpi icon={<Ban color="#d92f59" />} label="Requests blocked" value={data.blocked} tone="red" note="Zero-trust policy & tool drops" onClick={() => nav('/audit')} />
             <Kpi icon={<Wrench color="#2563ff" />} label="Tool calls" value={data.toolCalls} tone="blue" note="Local AST & file queries" onClick={() => nav('/local-tools')} />
             <Kpi icon={<Eye color="#c07a00" />} label="Pending approvals" value={data.pendingApprovals} tone="amber" note="Awaiting SOC clearance"
               badge={data.pendingApprovals > 0 ? <Pill>ACTION NEEDED</Pill> : undefined} onClick={() => nav('/approvals')} />
             <Kpi icon={<FileText color="#2563ff" />} label="Audit events" value={data.auditEvents} tone="blue" note="SHA-256 blocks committed" onClick={() => nav('/integrity')} />
-            <Kpi icon={<ArrowLeftRight color="#0a9f73" />} label="Data transfers" value={data.outbound === null ? 'UNKNOWN' : `${data.outbound} OUTBOUND`} tone={data.outbound ? 'amber' : 'green'} note="Clean air-gap perimeter" />
+            <Kpi icon={<ArrowLeftRight color="#0a9f73" />} label="Data transfers"
+              value={(data.clarixOutbound ?? 0) > 0 ? `${data.clarixOutbound} OUTBOUND` : (data.blockedEgress ?? 0) > 0 ? `${data.blockedEgress} BLOCKED` : '0 EGRESS'}
+              tone={(data.clarixOutbound ?? 0) > 0 ? 'amber' : 'green'}
+              note={(data.clarixOutbound ?? 0) > 0 ? `${data.clarixOutbound} Clarix process socket(s) open` : data.outbound ? `0 Clarix egress (${data.outbound} host conns)` : 'Clean air-gap perimeter'}
+              onClick={() => nav('/network')} />
           </div>
 
           <div className="cx-grid cx-grid--2">
-            <Card title="AGENT EXECUTION ACTIVITY" icon={<Bot color="#7c4ee0" />} aside={<Pill tone="gray">sample data</Pill>}>
+            <Card title="AGENT EXECUTION ACTIVITY" icon={<Bot color="#7c4ee0" />} aside={<Pill tone={data.activity && data.activity.some((a) => a.runs > 0 || a.blocked > 0) ? 'blue' : 'gray'} dot={Boolean(data.activity && data.activity.some((a) => a.runs > 0 || a.blocked > 0))}>{data.activity && data.activity.some((a) => a.runs > 0 || a.blocked > 0) ? 'REAL-TIME 24H' : 'IDLE'}</Pill>}>
               <div className="chart" style={{ height: 210 }} role="img" aria-label="Area chart of agent runs and blocked runs across the day">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data.activity} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                    <defs><linearGradient id="gRuns" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#12b5ff" stopOpacity={0.55} /><stop offset="100%" stopColor="#12b5ff" stopOpacity={0.03} /></linearGradient></defs>
-                    <CartesianGrid strokeDasharray="3 4" stroke="rgba(53,92,154,.18)" />
-                    <XAxis dataKey="h" tick={AXIS} axisLine={false} tickLine={false} />
-                    <YAxis tick={AXIS} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #fff', fontFamily: 'JetBrains Mono', fontSize: 12 }} />
-                    <Area type="monotone" dataKey="runs" name="Agent runs" stroke="#2563ff" strokeWidth={2} fill="url(#gRuns)" />
-                    <Area type="monotone" dataKey="blocked" name="Blocked" stroke="#d92f59" strokeWidth={2} fill="none" />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {data.activity && data.activity.some((a) => a.runs > 0 || a.blocked > 0) ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={data.activity} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                      <defs><linearGradient id="gRuns" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#12b5ff" stopOpacity={0.55} /><stop offset="100%" stopColor="#12b5ff" stopOpacity={0.03} /></linearGradient></defs>
+                      <CartesianGrid strokeDasharray="3 4" stroke="rgba(53,92,154,.18)" />
+                      <XAxis dataKey="h" tick={AXIS} axisLine={false} tickLine={false} />
+                      <YAxis tick={AXIS} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #fff', fontFamily: 'JetBrains Mono', fontSize: 12 }} />
+                      <Area type="monotone" dataKey="runs" name="Agent runs" stroke="#2563ff" strokeWidth={2} fill="url(#gRuns)" />
+                      <Area type="monotone" dataKey="blocked" name="Blocked" stroke="#d92f59" strokeWidth={2} fill="none" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--mute)' }}>
+                    <Bot size={32} color="#7c4ee0" style={{ marginBottom: 8, opacity: 0.7 }} />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>No agent execution runs recorded in last 24h</span>
+                    <span style={{ fontSize: '0.75rem' }}>Send a prompt in AI Agent to generate live activity</span>
+                  </div>
+                )}
               </div>
             </Card>
-            <Card title="THREATS BY CATEGORY" icon={<Flame color="#d92f59" />} aside={<Pill tone="gray">sample data</Pill>}>
+            <Card title="THREATS BY CATEGORY" icon={<Flame color="#d92f59" />} aside={<Pill tone={data.threatCats && data.threatCats.length > 0 ? 'red' : 'green'} dot>{data.threatCats && data.threatCats.length > 0 ? 'ACTIVE LEDGER' : '0 THREATS'}</Pill>}>
               <div className="chart" style={{ height: 210 }} role="img" aria-label="Bar chart of detected threats by category">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.threatCats} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 4" stroke="rgba(53,92,154,.18)" vertical={false} />
-                    <XAxis dataKey="name" tick={{ ...AXIS, fontSize: 9 }} axisLine={false} tickLine={false} interval={0} />
-                    <YAxis allowDecimals={false} tick={AXIS} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #fff', fontFamily: 'JetBrains Mono', fontSize: 12 }} />
-                    <Bar dataKey="count" name="Detections" fill="#ff4d86" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {data.threatCats && data.threatCats.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data.threatCats} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 4" stroke="rgba(53,92,154,.18)" vertical={false} />
+                      <XAxis dataKey="name" tick={{ ...AXIS, fontSize: 9 }} axisLine={false} tickLine={false} interval={0} />
+                      <YAxis allowDecimals={false} tick={AXIS} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #fff', fontFamily: 'JetBrains Mono', fontSize: 12 }} />
+                      <Bar dataKey="count" name="Detections" fill="#ff4d86" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--mute)' }}>
+                    <ShieldCheck size={36} color="#0a9f73" style={{ marginBottom: 8 }} />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Zero threats detected in active ledger</span>
+                    <span style={{ fontSize: '0.75rem' }}>Prompt injection and jailbreak scanners active</span>
+                  </div>
+                )}
               </div>
             </Card>
           </div>

@@ -11,7 +11,8 @@
 .cx-ph p { margin: 0.35rem 0 0; max-width: 72ch; font: 400 0.78rem/1.5 var(--font-mono); color: var(--mute); }
 
 /* glass cards */
-.cx-card { position: relative; padding: 1.1rem 1.25rem; border-radius: var(--radius-lg); border: 1px solid rgba(255,255,255,.92); background: linear-gradient(135deg, rgba(255,255,255,.8), rgba(236,243,255,.62)); box-shadow: var(--shadow-card); backdrop-filter: blur(18px) saturate(1.25); -webkit-backdrop-filter: blur(18px) saturate(1.25); }
+.cx-card { position: relative; padding: 1.1rem 1.25rem; border-radius: var(--radius-lg); border: 1px solid rgba(255,255,255,.94); background: linear-gradient(135deg, rgba(255,255,255,.94), rgba(242,247,255,.90)); box-shadow: var(--shadow-card); backdrop-filter: blur(20px) saturate(1.25); -webkit-backdrop-filter: blur(20px) saturate(1.25); }
+:root[data-theme="dark"] .cx-card { border-color: rgba(255,255,255,.15); background: linear-gradient(135deg, rgba(15,23,42,.94), rgba(30,41,59,.90)); }
 .cx-card--red { background: linear-gradient(135deg, rgba(255,238,244,.9), rgba(255,247,250,.65)); border-color: var(--red-line); }
 .cx-card--green { background: linear-gradient(135deg, rgba(232,252,246,.9), rgba(246,255,252,.65)); border-color: var(--green-line); }
 .cx-card--selected { border-color: rgba(139,92,246,.6); box-shadow: 0 0 0 2px rgba(139,92,246,.18), var(--shadow-card); }

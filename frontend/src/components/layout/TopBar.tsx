@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Bell, ShieldAlert } from 'lucide-react';
+import { Bell, Menu, ShieldAlert } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useConsole } from '../../state/ConsoleContext';
 import { auditService, config, type IntegrityStatus } from '../../services';
 import styles from './Layout.module.css';
 
 export function TopBar() {
-  const { settings, counts, toast } = useConsole();
+  const { settings, counts, toast, drawerOpen, setDrawerOpen } = useConsole();
   const alerts = counts.pendingApprovals;
   const [integrity, setIntegrity] = useState<IntegrityStatus | null>(null);
   const [toggling, setToggling] = useState(false);
@@ -58,6 +58,15 @@ export function TopBar() {
 
   return (
     <header className={styles.top}>
+      <button
+        type="button"
+        className={styles.mobileMenuBtn}
+        onClick={() => setDrawerOpen(!drawerOpen)}
+        aria-label={drawerOpen ? 'Close navigation drawer' : 'Open navigation drawer'}
+      >
+        <Menu width={18} height={18} />
+      </button>
+
       {settings.notifications && alerts > 0 && (
         <NavLink to="/approvals" className={styles.bell} aria-label={`${alerts} approval${alerts > 1 ? 's' : ''} waiting`}>
           <Bell width={14} height={14} />{alerts} approval{alerts > 1 ? 's' : ''} waiting
@@ -160,12 +169,6 @@ export function TopBar() {
           <i />SIMULATED DATA
         </span>
       )}
-      <nav className={styles.links} aria-label="Quick links">
-        <NavLink to="/overview">Overview ↗</NavLink>
-        <NavLink to="/policies">Policies ↗</NavLink>
-        <NavLink to="/prompt-injection">Threats ↗</NavLink>
-        <NavLink to="/settings">System ↗</NavLink>
-      </nav>
     </header>
   );
 }

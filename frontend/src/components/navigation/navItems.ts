@@ -9,6 +9,7 @@ import {
   Fingerprint,
   GitFork,
   HeartPulse,
+  Home,
   Layers,
   LayoutGrid,
   Settings,
@@ -26,7 +27,7 @@ import type { SidebarItem, SidebarSection } from './Sidebar';
 export type NavBadge =
   | { kind: 'count'; source: 'threats'; tone: 'red' }
   | { kind: 'count'; source: 'approvals'; tone: 'amber' }
-  | { kind: 'text'; text: string; tone: 'red' | 'green' };
+  | { kind: 'text'; text: string; tone: 'red' | 'green' | 'amber' };
 
 export interface NavItem {
   path: string;
@@ -42,6 +43,12 @@ export interface NavGroup {
 }
 
 export const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Home',
+    items: [
+      { path: '/', label: 'Home', icon: Home },
+    ],
+  },
   {
     label: 'Console',
     items: [
@@ -66,11 +73,12 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: ShieldAlert,
         badge: { kind: 'count', source: 'threats', tone: 'red' },
       },
+      { path: '/security-monitor', label: 'Threats', icon: Shield },
       {
         path: '/air-gap',
-        label: 'Air-Gap Monitor',
+        label: 'Air-Gap',
         icon: WifiOff,
-        badge: { kind: 'text', text: 'ISOLATED', tone: 'green' }, // green when isolated
+        badge: { kind: 'text', text: 'ISO', tone: 'green' },
       },
       {
         path: '/network',
@@ -79,28 +87,32 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       { path: '/tool-permissions', label: 'Tool Permissions', icon: Wrench },
       { path: '/taint', label: 'Data Taint', icon: GitFork },
-      { path: '/security-monitor', label: 'Security Harness', icon: Shield },
     ],
   },
   {
     label: 'Proof',
     items: [
-      { path: '/audit', label: 'Audit Logs', icon: FileText },
-      { path: '/integrity', label: 'SHA-256 Integrity', icon: Fingerprint },
+      { path: '/audit', label: 'Audit Ledger', icon: FileText },
+      { path: '/integrity', label: 'Integrity', icon: Fingerprint },
     ],
   },
   {
-    label: 'Advanced',
+    label: 'System',
     items: [
+      { path: '/health', label: 'System Health', icon: HeartPulse },
+      { path: '/architecture', label: 'Architecture', icon: Layers },
       { path: '/local-tools', label: 'Local Tools', icon: Terminal },
       {
         path: '/ollama',
         label: 'Ollama Engine',
         icon: Cpu,
-        badge: { kind: 'text', text: 'ONLINE', tone: 'green' },
+        badge: { kind: 'text', text: 'ON', tone: 'green' },
       },
-      { path: '/architecture', label: 'Architecture', icon: Layers },
-      { path: '/health', label: 'System Health', icon: HeartPulse },
+    ],
+  },
+  {
+    label: 'Settings',
+    items: [
       { path: '/settings', label: 'Settings', icon: Settings },
     ],
   },
@@ -118,10 +130,26 @@ export const SIDEBAR_SETTINGS_ITEM: SidebarItem = {
 export type { SidebarBadge, SidebarItem, SidebarSection } from './Sidebar';
 
 export function useSidebarSections(): SidebarSection[] {
-  const { counts } = useConsole();
+  const { counts, airGapStatus } = useConsole();
+
+  const airGapBadgeText =
+    airGapStatus.status === 'ISOLATED'
+      ? 'ISO'
+      : airGapStatus.status === 'NOT_ISOLATED'
+      ? 'WAN'
+      : '?';
+
+  const airGapBadgeTone =
+    airGapStatus.status === 'ISOLATED' ? 'success' : 'warning';
 
   return useMemo(
     () => [
+      {
+        label: 'Home',
+        items: [
+          { key: 'home', label: 'Home', icon: Home, href: '/' },
+        ],
+      },
       {
         label: 'Console',
         items: [
@@ -155,11 +183,17 @@ export function useSidebarSections(): SidebarSection[] {
                 : undefined,
           },
           {
+            key: 'security-monitor',
+            label: 'Threats',
+            icon: Shield,
+            href: '/security-monitor',
+          },
+          {
             key: 'air-gap',
-            label: 'Air-Gap Monitor',
+            label: 'Air-Gap',
             icon: WifiOff,
             href: '/air-gap',
-            badge: { text: 'ISOLATED', tone: 'success' }, // green when isolated
+            badge: { text: airGapBadgeText, tone: airGapBadgeTone },
           },
           {
             key: 'network',
@@ -174,37 +208,31 @@ export function useSidebarSections(): SidebarSection[] {
             href: '/tool-permissions',
           },
           { key: 'taint', label: 'Data Taint', icon: GitFork, href: '/taint' },
-          {
-            key: 'security-monitor',
-            label: 'Security Harness',
-            icon: Shield,
-            href: '/security-monitor',
-          },
         ],
       },
       {
         label: 'Proof',
         items: [
-          { key: 'audit', label: 'Audit Logs', icon: FileText, href: '/audit' },
-          { key: 'integrity', label: 'SHA-256 Integrity', icon: Fingerprint, href: '/integrity' },
+          { key: 'audit', label: 'Audit Ledger', icon: FileText, href: '/audit' },
+          { key: 'integrity', label: 'Integrity', icon: Fingerprint, href: '/integrity' },
         ],
       },
       {
-        label: 'Advanced',
+        label: 'System',
         items: [
+          { key: 'health', label: 'System Health', icon: HeartPulse, href: '/health' },
+          { key: 'architecture', label: 'Architecture', icon: Layers, href: '/architecture' },
           { key: 'local-tools', label: 'Local Tools', icon: Terminal, href: '/local-tools' },
           {
             key: 'ollama',
             label: 'Ollama Engine',
             icon: Cpu,
             href: '/ollama',
-            badge: { text: 'ONLINE', tone: 'success' },
+            badge: { text: 'ON', tone: 'success' },
           },
-          { key: 'architecture', label: 'Architecture', icon: Layers, href: '/architecture' },
-          { key: 'health', label: 'System Health', icon: HeartPulse, href: '/health' },
         ],
       },
     ],
-    [counts.pendingApprovals, counts.threats]
+    [counts.pendingApprovals, counts.threats, airGapBadgeText, airGapBadgeTone]
   );
 }
