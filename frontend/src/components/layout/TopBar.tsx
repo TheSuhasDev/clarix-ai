@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bell, ShieldAlert, Sparkles, Database, ShieldCheck } from 'lucide-react';
+import { Bell, ShieldAlert } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useConsole } from '../../state/ConsoleContext';
 import { auditService, config, type IntegrityStatus } from '../../services';

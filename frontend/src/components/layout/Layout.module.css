@@ -36,6 +36,34 @@
 .demo { display: inline-flex; align-items: center; gap: .4rem; padding: .22rem .7rem; border-radius: 999px; font: 700 .64rem var(--font-mono); color: #8a5200; background: rgba(255,181,73,.2); border: 1px solid rgba(255,181,73,.55); }
 .demo i { width: .45rem; height: .45rem; border-radius: 50%; background: #ff9f1a; }
 @media (max-width: 760px) { .links { display: none; } }
-.main { position: relative; z-index: var(--z-main); min-height: 100vh; }
+.shell {
+  --w: var(--sidebar-w-expanded, 220px);
+  min-height: 100vh;
+  position: relative;
+}
+
+.shellCollapsed {
+  --w: var(--sidebar-w-collapsed, 76px);
+}
+
+.main {
+  position: relative;
+  z-index: var(--z-main);
+  min-height: 100vh;
+  padding-left: calc(var(--w) + 28px);
+  transition: padding-left 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 520px) {
+  .main {
+    padding-left: calc(var(--w) + 14px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main {
+    transition: none !important;
+  }
+}
 
 .bell { display: inline-flex; align-items: center; gap: .4rem; padding: .22rem .7rem; border-radius: 999px; font: 700 .64rem var(--font-mono); color: #a85b00; background: rgba(255,181,73,.2); border: 1px solid rgba(255,181,73,.55); }

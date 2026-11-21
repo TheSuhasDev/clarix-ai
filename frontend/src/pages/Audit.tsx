@@ -8,7 +8,6 @@ import {
   ChevronDown,
   ChevronUp,
   RotateCcw,
-  Database,
   Clock,
   ShieldCheck,
   ChevronLeft,
@@ -17,7 +16,6 @@ import {
   X,
   FileCode,
   FileText,
-  Sparkles,
 } from 'lucide-react';
 import {
   Card,

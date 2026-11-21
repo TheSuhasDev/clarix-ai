@@ -22,6 +22,30 @@ interface Toast { id: string; tone: ToastTone; text: string }
 
 interface Counts { pendingApprovals: number; threats: number }
 
+const SIDEBAR_STORAGE_KEY = 'clarix.sidebar.collapsed';
+const PERF_MODE_STORAGE_KEY = 'clarix.performance.mode';
+
+function getInitialSidebarCollapsed(): boolean {
+  try {
+    const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (saved !== null) return JSON.parse(saved);
+  } catch {
+    // fallback
+  }
+  if (typeof window !== 'undefined' && window.innerWidth < 520) return true;
+  return false;
+}
+
+function getInitialPerformanceMode(): boolean {
+  try {
+    const saved = localStorage.getItem(PERF_MODE_STORAGE_KEY);
+    if (saved !== null) return JSON.parse(saved);
+  } catch {
+    // fallback
+  }
+  return false;
+}
+
 interface ConsoleValue {
   settings: Settings;
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
@@ -32,6 +56,10 @@ interface ConsoleValue {
   toasts: Toast[];
   toast: (text: string, tone?: ToastTone) => void;
   dismissToast: (id: string) => void;
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  performanceMode: boolean;
+  setPerformanceMode: (enabled: boolean) => void;
 }
 
 const Ctx = createContext<ConsoleValue | null>(null);
@@ -48,6 +76,36 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
   const [counts, setCounts] = useState<Counts>({ pendingApprovals: 0, threats: 0 });
   const [liveEvents, setLiveEvents] = useState<SecurityEvent[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState<boolean>(getInitialSidebarCollapsed);
+  const [performanceMode, setPerformanceModeState] = useState<boolean>(getInitialPerformanceMode);
+
+  const setSidebarCollapsed = useCallback((collapsed: boolean) => {
+    setSidebarCollapsedState(collapsed);
+    try {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(collapsed));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const setPerformanceMode = useCallback((enabled: boolean) => {
+    setPerformanceModeState(enabled);
+    try {
+      localStorage.setItem(PERF_MODE_STORAGE_KEY, JSON.stringify(enabled));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (performanceMode) {
+        document.body.classList.add('performance-mode');
+      } else {
+        document.body.classList.remove('performance-mode');
+      }
+    }
+  }, [performanceMode]);
 
   const dismissToast = useCallback((id: string) => setToasts((t) => t.filter((x) => x.id !== id)), []);
   const toast = useCallback((text: string, tone: ToastTone = 'blue') => {
@@ -79,8 +137,35 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
 
   const resetSettings = useCallback(() => setSettings(DEFAULT_SETTINGS), [setSettings]);
 
-  const value = useMemo<ConsoleValue>(() => ({ settings, setSetting, resetSettings, counts, refreshCounts, liveEvents, toasts, toast, dismissToast }),
-    [settings, setSetting, resetSettings, counts, refreshCounts, liveEvents, toasts, toast, dismissToast]);
+  const value = useMemo<ConsoleValue>(() => ({
+    settings,
+    setSetting,
+    resetSettings,
+    counts,
+    refreshCounts,
+    liveEvents,
+    toasts,
+    toast,
+    dismissToast,
+    sidebarCollapsed,
+    setSidebarCollapsed,
+    performanceMode,
+    setPerformanceMode,
+  }), [
+    settings,
+    setSetting,
+    resetSettings,
+    counts,
+    refreshCounts,
+    liveEvents,
+    toasts,
+    toast,
+    dismissToast,
+    sidebarCollapsed,
+    setSidebarCollapsed,
+    performanceMode,
+    setPerformanceMode,
+  ]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

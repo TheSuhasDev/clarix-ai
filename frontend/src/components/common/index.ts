@@ -13,3 +13,4 @@ export * from './CopyButton';
 export * from './Page';
 export * from './AuthModal';
 export * from './SystemLockedOverlay';
+export * from './ClarixMark';

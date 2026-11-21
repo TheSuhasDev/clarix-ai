@@ -243,12 +243,14 @@ def approval_resolve(ctx, req):
 
 
 def approval_simulate(ctx, req):
-    if not (ctx.integrity.demo_mode or getattr(ctx.settings, "demo_mode", False)):
-        raise forbidden("Demo approvals like 'Agent Reasoning Core (demo)' appear only in Demo Mode.", code="demo_mode_required")
-    from .approvals import Approvals, Grants
-    demo_grants = Grants(ctx.integrity.demo_db)
-    demo_approvals = Approvals(ctx.integrity.demo_db, ctx.integrity.demo_audit, ctx.settings.approval_timeout_s, demo_grants)
-    return demo_approvals.create(
+    if not ctx.settings.demo_endpoints:
+        raise not_found("Demo endpoints disabled")
+    target_approvals = ctx.approvals
+    if ctx.integrity.demo_mode:
+        from .approvals import Approvals, Grants
+        demo_grants = Grants(ctx.integrity.demo_db)
+        target_approvals = Approvals(ctx.integrity.demo_db, ctx.integrity.demo_audit, ctx.settings.approval_timeout_s, demo_grants)
+    return target_approvals.create(
         action="Export audit ledger snapshot to external storage (demo request)",
         tool="Local Database",
         resource="/sandbox/db/ledger.sqlite",
