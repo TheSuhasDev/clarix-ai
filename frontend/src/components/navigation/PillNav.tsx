@@ -1,84 +1,118 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { ShieldAlert } from 'lucide-react';
 import { ClarixMark } from '../common/ClarixMark';
+import { auditService, type IntegrityStatus } from '../../services';
+import { useConsole } from '../../state/ConsoleContext';
 import styles from './PillNav.module.css';
 
-interface NavItem {
-  label: string;
-  path: string;
+export interface PillNavProps {
+  integrity?: IntegrityStatus | null;
+  isDemo?: boolean;
+  toggling?: boolean;
+  onToggleDemo?: () => void;
 }
 
-const NAV_LINKS: NavItem[] = [
-  { label: 'Home', path: '/' },
-  { label: 'Console', path: '/overview' },
-  { label: 'Architecture', path: '/architecture' },
-  { label: 'Settings', path: '/settings' },
-];
-
-export function PillNav() {
-  const [closed, setClosed] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 900 : false));
+export function PillNav(props: PillNavProps) {
   const location = useLocation();
+  const consoleCtx = useConsole();
+  const [closed, setClosed] = useState(false);
 
-  const activeIndex = NAV_LINKS.findIndex((l) => {
-    if (l.path === '/') return location.pathname === '/';
-    return location.pathname.startsWith(l.path);
-  });
-  // Map any other console sub-routes (/policies, /agent, etc.) to the Console item
-  const isConsoleSubroute =
-    activeIndex === -1 &&
-    location.pathname !== '/' &&
-    !location.pathname.startsWith('/architecture') &&
-    !location.pathname.startsWith('/settings');
-  const active = isConsoleSubroute ? 1 : activeIndex;
+  // Internal state fallback if props are not passed
+  const [internalIntegrity, setInternalIntegrity] = useState<IntegrityStatus | null>(null);
+  const [internalToggling, setInternalToggling] = useState(false);
 
-  const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
-  const [highlightStyle, setHighlightStyle] = useState<{ left: number; width: number } | null>(null);
-
-  const updateHighlight = useCallback((index: number) => {
-    if (index < 0) {
-      setHighlightStyle(null);
-      return;
-    }
-    const el = itemRefs.current[index];
-    if (el) {
-      setHighlightStyle({
-        left: el.offsetLeft,
-        width: el.offsetWidth,
-      });
-    }
-  }, []);
+  const hasProps = props.integrity !== undefined;
 
   useEffect(() => {
-    updateHighlight(active);
-  }, [active, updateHighlight, closed]);
-
-  useEffect(() => {
-    const onResize = () => {
-      updateHighlight(active);
-    };
-    window.addEventListener('resize', onResize);
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(() => updateHighlight(active));
-    }
-    return () => window.removeEventListener('resize', onResize);
-  }, [active, updateHighlight]);
-
-  const toggleNav = () => {
-    setClosed((prev) => {
-      const next = !prev;
-      if (!next) {
-        setTimeout(() => updateHighlight(active), 300);
+    if (hasProps) return;
+    let mounted = true;
+    const check = async () => {
+      try {
+        const st = await auditService.getIntegrityStatus();
+        if (mounted) setInternalIntegrity(st);
+      } catch {
+        // ignore
       }
-      return next;
-    });
+    };
+    check();
+    const interval = setInterval(check, 2500);
+
+    const onDemoChanged = (ev: Event) => {
+      const detail = (ev as CustomEvent).detail;
+      if (mounted && detail) {
+        setInternalIntegrity((prev) =>
+          prev
+            ? {
+                ...prev,
+                ledger: detail.ledger,
+                demoMode: detail.demoMode,
+                dbPath: detail.dbPath,
+                locked: detail.locked,
+              }
+            : null
+        );
+      }
+    };
+    window.addEventListener('clarix:demo_mode_changed', onDemoChanged);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      window.removeEventListener('clarix:demo_mode_changed', onDemoChanged);
+    };
+  }, [hasProps]);
+
+  const integrity = hasProps ? props.integrity : internalIntegrity;
+  const isDemo = hasProps
+    ? props.isDemo
+    : Boolean(integrity?.ledger === 'demo' || integrity?.demoMode);
+  const toggling = hasProps ? props.toggling : internalToggling;
+
+  const handleInternalToggleDemo = async () => {
+    setInternalToggling(true);
+    try {
+      const nextMode = !isDemo;
+      const res = await auditService.toggleDemoMode(nextMode);
+      setInternalIntegrity((prev) =>
+        prev
+          ? {
+              ...prev,
+              ledger: res.ledger,
+              demoMode: res.demoMode,
+              dbPath: res.dbPath,
+              locked: res.locked,
+            }
+          : null
+      );
+      consoleCtx.toast(
+        res.demoMode
+          ? 'Switched to Demo Mode (isolated sandbox ledger).'
+          : 'Returned to Live Ledger (production files untouched).',
+        'green'
+      );
+      window.dispatchEvent(
+        new CustomEvent('clarix:demo_mode_changed', { detail: res })
+      );
+    } catch (e: any) {
+      consoleCtx.toast(e?.message || 'Failed to switch demo mode', 'red');
+    } finally {
+      setInternalToggling(false);
+    }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+  const onToggleDemo = hasProps ? props.onToggleDemo : handleInternalToggleDemo;
+
+  const toggleNav = () => setClosed((prev) => !prev);
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLAnchorElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       toggleNav();
     }
   };
+
+  const isHomeActive = location.pathname === '/';
 
   return (
     <nav
@@ -86,49 +120,76 @@ export function PillNav() {
       className={`${styles.nav} ${closed ? styles.closed : ''}`}
       aria-label="Pill navigation"
     >
-      <div
+      <Link
+        to="/"
         className={styles.logo}
         id="logo"
-        role="button"
-        tabIndex={0}
-        aria-expanded={!closed}
-        aria-label="Toggle navigation menu"
-        title={closed ? 'Expand navigation' : 'Collapse navigation'}
-        onClick={toggleNav}
+        aria-label="Clarix Home"
+        title={closed ? 'Expand navigation' : 'Clarix AI Home'}
         onKeyDown={handleKeyDown}
       >
         <ClarixMark size={18} />
-      </div>
+      </Link>
 
       <div className={styles.items} id="items">
-        {highlightStyle && !closed && (
-          <span
-            className={styles.highlight}
-            style={{
-              transform: `translateX(${highlightStyle.left}px)`,
-              width: `${highlightStyle.width}px`,
-            }}
-            aria-hidden="true"
-          />
+        <Link
+          to="/"
+          className={`${styles.item} ${isHomeActive ? styles.active : ''}`}
+          aria-current={isHomeActive ? 'page' : undefined}
+        >
+          <span>Home</span>
+          {isHomeActive && <span className={styles.activeDot} aria-hidden="true" />}
+        </Link>
+
+        <div className={styles.divider} aria-hidden="true" />
+
+        {/* LIVE LEDGER / DEMO MODE / SYSTEM LOCKED BADGE */}
+        {integrity?.locked ? (
+          <Link
+            to="/audit"
+            className={`${styles.ledgerBadge} ${styles.lockedBadge}`}
+            title={`System locked: ${integrity.reason || 'Cryptographic tamper detected'}`}
+          >
+            <ShieldAlert width={13} height={13} />
+            <span>SYSTEM LOCKED</span>
+          </Link>
+        ) : isDemo ? (
+          <Link
+            to="/audit"
+            className={`${styles.ledgerBadge} ${styles.demoBadge}`}
+            title={`Isolated Demo Ledger active: ${integrity?.dbPath || 'data/demo/clarix_demo.db'}`}
+          >
+            <span className={styles.demoDot} />
+            <span>DEMO MODE</span>
+          </Link>
+        ) : (
+          <Link
+            to="/audit"
+            className={`${styles.ledgerBadge} ${styles.liveBadge}`}
+            title={`Live Production Ledger active: ${integrity?.dbPath || 'data/clarix.db'}`}
+          >
+            <span className={styles.liveDot} />
+            <span>LIVE LEDGER</span>
+          </Link>
         )}
-        {NAV_LINKS.map((link, idx) => {
-          const isActive = idx === active;
-          return (
-            <Link
-              key={link.path}
-              to={link.path}
-              ref={(el) => {
-                itemRefs.current[idx] = el;
-              }}
-              className={`${styles.item} ${isActive ? styles.active : ''}`}
-              aria-current={isActive ? 'page' : undefined}
-            >
-              <span className={styles.label}>{link.label}</span>
-              {isActive && <span className={styles.activeDot} aria-hidden="true" />}
-            </Link>
-          );
-        })}
+
+        {/* ENTER / EXIT DEMO MODE BUTTON */}
+        <button
+          type="button"
+          className={`${styles.demoBtn} ${isDemo ? styles.demoBtnActive : styles.demoBtnLive}`}
+          onClick={onToggleDemo}
+          disabled={toggling}
+          title={
+            isDemo
+              ? 'Exit Demo Mode and return to untouched production ledger'
+              : 'Enter Demo Mode to test attacks in safe sandbox'
+          }
+        >
+          {toggling ? 'Switching…' : isDemo ? 'Exit Demo Mode' : 'Enter Demo Mode'}
+        </button>
       </div>
     </nav>
   );
 }
+
+export default PillNav;

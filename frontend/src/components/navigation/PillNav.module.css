@@ -5,20 +5,20 @@
   align-items: center !important;
   justify-content: flex-start !important;
   height: 52px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   box-sizing: border-box;
   width: fit-content;
   max-width: calc(100vw - 32px);
   border-radius: 26px; /* equal to half the 52px height */
   overflow: hidden;
-  background: var(--pill-bg, rgba(255, 255, 255, 0.75));
+  background: var(--pill-bg, rgba(255, 255, 255, 0.80));
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--pill-border, rgba(255, 255, 255, 0.85));
+  border: 1px solid var(--pill-border, rgba(255, 255, 255, 0.90));
   box-shadow: var(--pill-shadow, 0 8px 28px rgba(15, 42, 61, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.95));
   position: relative;
   user-select: none;
-  gap: 6px;
+  gap: 8px;
   transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), gap 0.35s ease, box-shadow 0.25s ease;
 }
 
@@ -59,6 +59,7 @@
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;
   outline: none;
   margin: 0;
+  text-decoration: none;
 }
 
 .logo:hover {
@@ -83,9 +84,8 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
   position: relative;
-  max-width: 600px;
   opacity: 1;
   transition: max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
 }
@@ -103,9 +103,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 18px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 16px;
   color: var(--pill-text, #0f2a3d) !important;
   text-decoration: none !important;
   font-family: var(--font-sans, 'Sofia Sans', Inter, system-ui, sans-serif);
@@ -116,30 +116,20 @@
   white-space: nowrap;
   outline: none;
   z-index: 2;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, background 0.2s ease;
 }
 
-.item:focus-visible {
-  outline: 2px solid var(--blue, #2563ff);
-  outline-offset: 2px;
+.item:hover {
+  background: rgba(37, 99, 255, 0.06);
+  color: var(--pill-text-hover, #2563ff) !important;
 }
 
-.label {
-  position: relative;
-  z-index: 2;
-  color: var(--pill-text, #0f2a3d);
-}
-
-.item:hover .label {
-  color: var(--pill-text-hover, #2563ff);
-}
-
-.item.active .label {
-  color: #071225;
+.item.active {
+  color: #2563ff !important;
   font-weight: 800;
+  background: rgba(37, 99, 255, 0.08);
 }
 
-/* Active Dot under active item */
 .activeDot {
   position: absolute;
   bottom: 2px;
@@ -153,25 +143,107 @@
   z-index: 3;
 }
 
-/* Sliding active highlight capsule behind active item */
-.highlight {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 36px;
-  border-radius: 18px;
-  background: var(--pill-fill, rgba(255, 255, 255, 0.90));
-  border: 1px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 2px 10px rgba(15, 42, 61, 0.06);
-  pointer-events: none;
-  z-index: 1;
-  transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.2, 1),
-    width 0.3s cubic-bezier(0.2, 0.9, 0.2, 1);
-  will-change: transform, width;
+.divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(148, 163, 184, 0.35);
+  margin: 0 2px;
 }
 
-:global(body.performance-mode) .highlight {
-  transition: none !important;
+/* Ledger status badge link */
+.ledgerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  text-decoration: none !important;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition: filter 0.15s ease, transform 0.15s ease;
+  z-index: 2;
+}
+
+.ledgerBadge:hover {
+  filter: brightness(0.95);
+  transform: translateY(-1px);
+}
+
+.liveBadge {
+  background-color: rgba(16, 185, 129, 0.14);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #059669;
+  box-shadow: 0 0 6px #059669;
+}
+
+.demoBadge {
+  background-color: rgba(245, 158, 11, 0.16);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+.demoDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #d97706;
+  box-shadow: 0 0 6px #d97706;
+}
+
+.lockedBadge {
+  background-color: rgba(239, 68, 68, 0.22);
+  color: #ef4444;
+  border: 1.5px solid #ef4444;
+  font-weight: 800;
+}
+
+/* Demo toggle button */
+.demoBtn {
+  font-size: 0.70rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  z-index: 2;
+  font-family: var(--font-sans, 'Sofia Sans', Inter, system-ui, sans-serif);
+  line-height: 1.4;
+}
+
+.demoBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.demoBtnLive {
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  background-color: #ffffff;
+}
+
+.demoBtnLive:hover:not(:disabled) {
+  background-color: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.demoBtnActive {
+  border: 1px solid #d97706;
+  color: #b45309;
+  background-color: rgba(254, 243, 199, 0.85);
+}
+
+.demoBtnActive:hover:not(:disabled) {
+  background-color: rgba(254, 243, 199, 1);
 }
 
 /* Mobile adjustments (<= 600px) */
@@ -195,13 +267,16 @@
     height: 16px;
   }
   .item {
-    height: 32px;
+    height: 28px;
     padding: 0 8px;
     font-size: 11px;
-    letter-spacing: 0.03em;
   }
-  .highlight {
-    height: 32px;
-    border-radius: 16px;
+  .ledgerBadge {
+    padding: 3px 6px;
+    font-size: 0.68rem;
+  }
+  .demoBtn {
+    padding: 2px 6px;
+    font-size: 0.65rem;
   }
 }

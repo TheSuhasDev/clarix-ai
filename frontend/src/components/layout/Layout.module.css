@@ -32,25 +32,6 @@
 }
 .top > * { pointer-events: auto; }
 
-.centerBadges {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  pointer-events: auto;
-  z-index: 2;
-}
-
-@media (max-width: 768px) {
-  .centerBadges {
-    position: static;
-    transform: none;
-  }
-}
-
 .mobileMenuBtn {
   display: none;
   align-items: center;
