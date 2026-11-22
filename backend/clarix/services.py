@@ -259,7 +259,10 @@ def _active_approvals(ctx):
     if hasattr(ctx, "integrity") and getattr(ctx.integrity, "demo_mode", False) and hasattr(ctx.integrity, "demo_db") and ctx.integrity.demo_db:
         from .approvals import Approvals, Grants
         demo_grants = Grants(ctx.integrity.demo_db)
-        return Approvals(ctx.integrity.demo_db, ctx.integrity.demo_audit, ctx.settings.approval_timeout_s, demo_grants)
+        app = Approvals(ctx.integrity.demo_db, ctx.integrity.demo_audit, ctx.settings.approval_timeout_s, demo_grants)
+        if hasattr(ctx, "approvals") and ctx.approvals:
+            app.resume_tool = ctx.approvals.resume_tool
+        return app
     return ctx.approvals
 
 
@@ -392,10 +395,19 @@ def approval_resolve(ctx, req):
     mgr = _active_approvals(ctx)
     try:
         return mgr.resolve(aid, decision, req.operator, note)
-    except Exception:
-        if hasattr(ctx, "integrity") and getattr(ctx.integrity, "demo_mode", False) and ctx.approvals:
-            return ctx.approvals.resolve(aid, decision, req.operator, note)
-        raise
+    except Exception as exc:
+        alt = ctx.approvals if mgr is not ctx.approvals else None
+        if alt is None and hasattr(ctx, "integrity") and hasattr(ctx.integrity, "demo_db") and ctx.integrity.demo_db:
+            from .approvals import Approvals, Grants
+            alt = Approvals(ctx.integrity.demo_db, ctx.integrity.demo_audit, ctx.settings.approval_timeout_s, Grants(ctx.integrity.demo_db))
+            if hasattr(ctx, "approvals") and ctx.approvals:
+                alt.resume_tool = ctx.approvals.resume_tool
+        if alt:
+            try:
+                return alt.resolve(aid, decision, req.operator, note)
+            except Exception:
+                pass
+        raise exc
 
 
 def approval_simulate(ctx, req):
