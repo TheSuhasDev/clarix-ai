@@ -170,6 +170,8 @@ export const DiagnosticsPage: React.FC = () => {
             style={{
               flex: 1,
               minHeight: '280px',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
               background: '#0E1A29',
               border: '1px solid rgba(23, 107, 255, 0.2)',
               borderRadius: '14px',
@@ -179,6 +181,8 @@ export const DiagnosticsPage: React.FC = () => {
               lineHeight: 1.6,
               fontFamily: 'var(--font-mono)',
               overflowX: 'auto',
+              wordBreak: 'break-all',
+              whiteSpace: 'pre-wrap',
               boxShadow: 'inset 0 2px 6px rgba(0, 0, 0, 0.35)',
             }}
           >

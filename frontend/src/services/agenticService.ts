@@ -37,7 +37,7 @@ export interface AgentRun {
   actor: string;
   role: 'researcher' | 'analyst' | 'operator';
   goal: string;
-  status: 'INITIALIZING' | 'PLANNING' | 'AWAITING_PLAN_APPROVAL' | 'RUNNING' | 'PAUSED' | 'STOPPED' | 'COMPLETED' | 'FAILED' | 'BUDGET_EXCEEDED' | 'REJECTED';
+  status: 'INITIALIZING' | 'PLANNING' | 'AWAITING_PLAN_APPROVAL' | 'RUNNING' | 'PAUSED' | 'STOPPED' | 'COMPLETED' | 'FAILED' | 'BUDGET_EXCEEDED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
   planMode: 'auto' | 'plan_then_act' | 'dry_run';
   plan: PlanStep[];
   steps: RunStep[];
@@ -246,6 +246,19 @@ export const agenticService = {
     if (!r) throw new Error(`Run ${id} not found`);
     r.status = 'STOPPED';
     r.stopReason = 'Operator invoked kill-switch';
+    return mock(() => ({ ...r }), 150);
+  },
+
+  async cancelRun(id: string): Promise<AgentRun> {
+    if (!config.useMocks) {
+      return request<AgentRun>(`/api/agent/runs/${id}/cancel`, {
+        method: 'POST',
+      });
+    }
+    const r = mockRuns.find((x) => x.id === id);
+    if (!r) throw new Error(`Run ${id} not found`);
+    r.status = 'CANCELLED';
+    r.stopReason = 'Cancelled by operator';
     return mock(() => ({ ...r }), 150);
   },
 

@@ -12,7 +12,7 @@ export default function Health() {
   const { data, loading, error, reload } = useAsync(() => healthService.get());
   return (
     <Page>
-      <PageHeader icon={<HeartPulse color="#e0263c" />} title="System Health & Resource Telemetry" subtitle="Local CPU, memory footprint, request latencies, and process sandbox boundaries (sample data)."
+      <PageHeader icon={<HeartPulse color="#e0263c" />} title="System Health & Resource Telemetry" subtitle="Local CPU, memory footprint, request latencies, and process sandbox boundaries."
         aside={<div className="cx-row"><Pill tone={data && data.services.some((s) => s.status === 'OFFLINE') ? 'red' : 'green'} large>{data && data.services.some((s) => s.status === 'OFFLINE') ? `${data.services.filter((s) => s.status !== 'OFFLINE').length} OF ${data.services.length} SUBSYSTEMS HEALTHY` : `ALL ${data?.services.length ?? 8} SUBSYSTEMS HEALTHY`}</Pill><button type="button" className="cx-btn cx-btn--ghost cx-btn--sm" onClick={reload} disabled={loading}><RefreshCw className={loading ? 'cx-spin' : ''} />Refresh</button></div>} />
       {loading && !data && <Loading rows={3} height={150} />}
       {error && <Card><ErrorState message={error} onRetry={reload} /></Card>}

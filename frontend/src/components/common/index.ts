@@ -14,3 +14,4 @@ export * from './Page';
 export * from './AuthModal';
 export * from './SystemLockedOverlay';
 export * from './ClarixMark';
+export * from './ErrorBoundary';

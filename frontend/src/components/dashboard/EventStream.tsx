@@ -33,7 +33,7 @@ export function EventStream({ events, maxHeight = 260 }: { events: SecurityEvent
           );
         })}
       </ul>
-      <div className="evs__foot"><span className="cx-pill cx-pill--green cx-pill--dot">Continuous telemetry active (simulated)</span><Link to="/audit">Audit Log Archive <ArrowRight width={14} height={14} /></Link></div>
+      <div className="evs__foot"><span className="cx-pill cx-pill--green cx-pill--dot">Continuous telemetry active</span><Link to="/audit">Audit Log Archive <ArrowRight width={14} height={14} /></Link></div>
     </Card>
   );
 }

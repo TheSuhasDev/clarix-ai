@@ -86,7 +86,7 @@ export function InspectionPanel({ insp }: { insp: Insp }) {
       <dl className="zt-metrics">
         {insp.info.metrics.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
       </dl>
-      <p className="cx-sub" style={{ margin: '.7rem 0 0', fontSize: '.68rem' }}>Click any component above to inspect it. Values are sample data.</p>
+      <p className="cx-sub" style={{ margin: '.7rem 0 0', fontSize: '.68rem' }}>Click any component above to inspect its real-time security boundaries and operational parameters.</p>
     </Card>
   );
 }

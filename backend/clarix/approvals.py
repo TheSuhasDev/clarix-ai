@@ -65,7 +65,7 @@ class Approvals:
     def get(self, aid: str) -> dict:
         r = self.db.one("SELECT * FROM approvals WHERE id=?", (aid,))
         if not r:
-            raise not_found(f"Approval {aid} not found")
+            raise not_found("This request has expired or was already handled")
         return self._view(r)
 
     def expire_stale(self) -> int:
@@ -97,11 +97,11 @@ class Approvals:
         self.expire_stale()
         row = self.db.one("SELECT * FROM approvals WHERE id=?", (aid,))
         if not row:
-            raise not_found(f"Approval {aid} not found")
+            raise not_found("This request has expired or was already handled")
         cur = self.db.x("UPDATE approvals SET status=?, resolved_at=?, resolved_by=?, note=? WHERE id=? AND status='PENDING'",
                         (decision, utcstamp(), operator, (note or "")[:300] or None, aid))
         if cur.rowcount == 0:
-            raise conflict(f"{aid} is already {self.get(aid)['status']}")
+            raise conflict("This request has expired or was already handled")
         self.audit.append(user=operator, action=f"{'Approved' if decision == 'APPROVED' else 'Denied'} {aid}", component="Human Approval",
                           risk=row["risk"], decision="ALLOW" if decision == "APPROVED" else "BLOCK", classification=row["classification"],
                           payload=f"approval:{aid}:{decision}")

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Bell, Database, KeyRound, Link2, Lock, Plug, RefreshCw, Server, Settings as Cog, ShieldCheck, SlidersHorizontal, Sparkles, WifiOff, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Bell, KeyRound, Link2, Plug, Server, Settings as Cog, ShieldCheck, SlidersHorizontal, Sparkles, WifiOff, RotateCcw } from 'lucide-react';
 import { Card, Page, PageHeader, Pill, Spinner, Toggle } from '../components/common';
 import { config, setEndpoints, setApiToken, settingsService } from '../services';
 import { useConsole, type Settings as S } from '../state/ConsoleContext';
@@ -8,12 +8,8 @@ import type { BackendStatus } from '../types';
 
 interface Row { key: keyof S; title: string; text: string; icon: ReactNode; color: string; tint: string }
 const ROWS: Row[] = [
-  { key: 'demoMode', title: 'Interactive Demo Mode', text: 'Shows the simulation buttons (exfiltration demo, taint scenario, high-risk request) used for presentation walkthroughs.', icon: <Sparkles />, color: '#ff9f1a', tint: 'amber' },
-  { key: 'heartbeat', title: 'Simulated Heartbeat Telemetry', text: 'Emits simulated periodic SOC events into the live stream every 18 seconds.', icon: <RefreshCw />, color: '#10c98f', tint: 'green' },
-  { key: 'notifications', title: 'Security Notifications', text: 'Highlights pending high-risk approval requests in the top bar.', icon: <Bell />, color: '#12b5ff', tint: 'blue' },
-  { key: 'auditLogging', title: 'Audit Logging & Merkle Commitment (demo ledger)', text: 'Append every UI-triggered decision to the in-memory demo ledger. Production audit logging lives in the backend and cannot be disabled here.', icon: <Database />, color: '#10c98f', tint: 'green' },
-  { key: 'webCrypto', title: 'Web Crypto SHA-256 Verification', text: 'Compute and verify hashes with the browser’s native SubtleCrypto API.', icon: <Lock />, color: '#8b5cf6', tint: 'violet' },
-  { key: 'simulateErrors', title: 'Simulate Service Errors', text: 'Makes every mock service fail so you can review the error and retry states.', icon: <AlertTriangle />, color: '#e0245e', tint: 'red' },
+  { key: 'demoMode', title: 'Interactive Demo Mode', text: 'Enables switching to the isolated demo sandbox ledger (data/demo/) for testing attacks without touching live production data.', icon: <Sparkles />, color: '#ff9f1a', tint: 'amber' },
+  { key: 'notifications', title: 'Security Notifications', text: 'Highlights pending high-risk human approval requests in the navigation and header.', icon: <Bell />, color: '#12b5ff', tint: 'blue' },
 ];
 
 function validUrl(v: string): boolean {
@@ -60,7 +56,7 @@ export default function Settings() {
           <Pill tone="red" dot large>BLOCKED</Pill>
         </Card>
 
-        <Card title="Operational toggles & demo controls" icon={<SlidersHorizontal color="#6a5cff" />} aside={<button type="button" className="cx-btn cx-btn--ghost cx-btn--sm" onClick={reset}><RotateCcw />Reset</button>}>
+        <Card title="Operational toggles & security preferences" icon={<SlidersHorizontal color="#6a5cff" />} aside={<button type="button" className="cx-btn cx-btn--ghost cx-btn--sm" onClick={reset}><RotateCcw />Reset</button>}>
           <ul className="st-list">
             {ROWS.map((r) => (
               <li key={r.key}>

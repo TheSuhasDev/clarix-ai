@@ -48,12 +48,6 @@ const STORAGE_KEY = 'clarix.sidebar.collapsed';
 
 function getStoredCollapsed(): boolean {
   try {
-    if (typeof window !== 'undefined') {
-      const sp = new URLSearchParams(window.location.search);
-      if (sp.has('collapsed')) {
-        return sp.get('collapsed') === 'true';
-      }
-    }
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved !== null) {
       return JSON.parse(saved);

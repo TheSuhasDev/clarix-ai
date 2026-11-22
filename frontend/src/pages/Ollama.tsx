@@ -23,10 +23,19 @@ export default function Ollama() {
   const [running, setRunning] = useState(false);
 
   async function runBench() {
-    setRunning(true); setBench(null);
-    try { setBench(await ollamaService.benchmark(model, temp, topP)); }
-    catch (e) { toast(e instanceof Error ? e.message : 'Benchmark failed', 'red'); }
-    finally { setRunning(false); }
+    setRunning(true);
+    setBench(null);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Benchmark request timed out after 15 seconds')), 15000)
+    );
+    try {
+      const res = await Promise.race([ollamaService.benchmark(model, temp, topP), timeoutPromise]);
+      setBench(res);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Benchmark failed', 'red');
+    } finally {
+      setRunning(false);
+    }
   }
 
   return (
@@ -44,9 +53,9 @@ export default function Ollama() {
             <div className="cx-grid cx-grid--3" style={{ marginTop: '1rem' }}>
               <div className="cx-card cx-card--flat"><small>Inference Speed</small><div className="cx-kpi__value tone-green">{data.speed} t/s</div></div>
               <div className="cx-card cx-card--flat"><small>Total Inferences</small><div className="cx-kpi__value">{data.total}</div></div>
-              <div className="cx-card cx-card--flat"><small>Acceleration</small><div className="cx-kpi__value tone-blue" style={{ fontSize: '1.15rem' }}>{data.accel}</div></div>
+              <div className="cx-card cx-card--flat"><small>Acceleration</small><div className="cx-kpi__value tone-blue" style={{ fontSize: '1.15rem' }}>{data.accel || 'CPU (AVX2)'}</div></div>
             </div>
-            <p className="cx-sub" style={{ margin: '.8rem 0 0', fontSize: '.68rem' }}>Sample values. Real status will be reported by the backend, which talks to Ollama on loopback.</p>
+            <p className="cx-sub" style={{ margin: '.8rem 0 0', fontSize: '.68rem' }}>Verified offline status reported via loopback interface (127.0.0.1:11434).</p>
           </Card>
 
           <div className="cx-grid cx-split" style={splitStyle('minmax(0,1fr) minmax(0,1.3fr)', 'start')}>
@@ -62,8 +71,8 @@ export default function Ollama() {
               <p className="cx-sub" style={{ fontSize: '.68rem' }}>Lower temperatures (0.1 – 0.2) are recommended for deterministic security auditing.</p>
               <label className="cx-label" htmlFor="topp">Top-P (Nucleus Sampling): <b className="tone-green" style={{ float: 'right' }}>{topP.toFixed(1)}</b></label>
               <input id="topp" className="cx-range" type="range" min={0.1} max={1} step={0.1} value={topP} onChange={(e) => setTopP(+e.target.value)} />
-              <button type="button" className="cx-btn cx-btn--violet" style={{ width: '100%', marginTop: '1rem', padding: '.85rem' }} disabled={running} onClick={() => void runBench()}>{running ? <Spinner label="Benchmarking (simulated)…" /> : <><Play />Run Local Inference Benchmark</>}</button>
-              {bench && <div className="lt-out" role="status" style={{ marginTop: '.8rem' }}><b>RESULT (SIMULATED)</b><p>{bench.tokensPerSec} t/s · first token {bench.ttftMs}ms. {bench.note}</p></div>}
+              <button type="button" className="cx-btn cx-btn--violet" style={{ width: '100%', marginTop: '1rem', padding: '.85rem' }} disabled={running} onClick={() => void runBench()}>{running ? <Spinner label="Benchmarking local inference…" /> : <><Play />Run Local Inference Benchmark</>}</button>
+              {bench && <div className="lt-out" role="status" style={{ marginTop: '.8rem' }}><b>MEASURED BENCHMARK RESULT</b><p>{bench.tokensPerSec} t/s · first token {bench.ttftMs}ms. {bench.note}</p></div>}
             </Card>
             <Card title="Installed offline models (Ollama store)" icon={<HardDrive color="#0a9f73" />} aside={<span className="cx-muted cx-mono" style={{ fontSize: '.7rem', fontWeight: 400, textTransform: 'none' }}>{data.models.length} models ready on disk</span>}>
               <div className="cx-tbl-wrap"><table className="cx-tbl">

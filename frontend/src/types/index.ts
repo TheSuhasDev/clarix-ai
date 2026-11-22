@@ -47,10 +47,20 @@ export interface ToolDef {
   blurb: string;
 }
 
-export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'DENIED';
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'DENIED' | 'EXPIRED';
+export interface ApprovalPlanStep {
+  step: number;
+  description: string;
+  tool: string;
+  risk?: string;
+  needsApproval?: boolean;
+}
 export interface ApprovalRequest {
   id: string;
+  runId?: string;
+  role?: string;
   createdAt: string;
+  expiresAt?: number | string;
   risk: Risk;
   classification: Classification;
   action: string;
@@ -61,6 +71,8 @@ export interface ApprovalRequest {
   resolvedAt?: string;
   resolvedBy?: string;
   note?: string;
+  planSteps?: ApprovalPlanStep[];
+  kind?: string;
 }
 
 export interface ThreatRecord {
@@ -150,10 +162,11 @@ export interface SourceRef {
   doc: string;
   /** "p. 4" for paginated documents (PDF), otherwise "section 3/12": we never invent page numbers */
   locator: string;
-  page: number | null;
+  page?: number | null;
   classification: Classification;
   score: number;
   snippet: string;
+  passage?: string;
   cited: boolean;
 }
 
@@ -173,7 +186,18 @@ export interface ChatMessage {
     /** present on /rag search | ask | sources replies */
     sources?: SourceRef[];
     command?: string;
-    attribution?: { sentences: number; cited: number; weaklySupported: number; method: string };
+    attribution?: {
+      sentences?: number;
+      cited?: number;
+      weaklySupported?: number;
+      method?: string;
+      claims?: number;
+      weak?: number;
+      citedSentences?: number;
+      status?: 'VERIFIED' | 'PARTIAL' | 'UNVERIFIED' | string;
+      reason?: string;
+      policy?: string;
+    };
     truncated?: boolean;
     reasoning?: string;
     error?: boolean;

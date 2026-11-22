@@ -43,11 +43,11 @@ function RobotBackdrop() {
 }
 
 /* ---------------- story ---------------- */
-const WORDS = [{ text: 'Tools', a: 0.46, b: 0.6 }, { text: 'Skill', a: 0.57, b: 0.71 }, { text: 'growth', a: 0.68, b: 0.82 }];
+const WORDS = [{ text: 'Private.', a: 0.46, b: 0.6 }, { text: 'Verified.', a: 0.57, b: 0.71 }, { text: 'Provable.', a: 0.68, b: 0.82 }];
 const STATS = [
-  { value: '200+', label: 'universes created', note: '*or maybe more', aria: 'See universes' },
-  { value: '97%', label: 'clients trust us for their next project', aria: 'See client results' },
-  { value: '10X', label: 'team turnover', note: '*or maybe more', aria: 'See team turnover' },
+  { value: '100%', label: 'Air-Gapped & Offline', note: '0 external sockets', aria: 'Air-gap guarantee' },
+  { value: '8 of 8', label: 'Deterministic Zero-Trust Policies', note: 'POL-001 to POL-008', aria: 'Policy engine' },
+  { value: '4-Layer', label: 'Cryptographic Tamper Defense', note: 'HMAC-SHA256 + SQLite Triggers', aria: 'Integrity ledger' },
 ];
 
 function Story() {
@@ -99,22 +99,22 @@ function Story() {
           <p>Runs fully offline. Every answer is verified. Every action is provable.</p>
           <Link className="pill" to="/overview">Open console</Link>
         </div>
-        <h2 className="blk pad" id="h2" ref={h2}>Empowering visionaries to shape tomorrow’s <b>digital landscapes</b></h2>
+        <h2 className="blk pad" id="h2" ref={h2}>Air-gapped sovereignty for <b>mission-critical defense</b></h2>
         <div className="blk" id="clients" ref={clients}>
-          <small>Our clients</small><hr />
+          <small>Core Security Standards</small><hr />
           <div className="logos" ref={logos}>
-            <i className="dr">dribbble</i><i className="eb">ebay</i><i>◎ Instagram</i><i>twitter</i>
-            <i>Discord</i><i>facebook</i><i className="sn">Snapchat</i><i>Spotify</i>
+            <i className="dr">AIR-GAP</i><i className="eb">HMAC-SHA256</i><i>◎ POL-006</i><i>FAIL-CLOSED</i>
+            <i>OLLAMA LOCAL</i><i>ZERO-TRUST</i><i className="sn">EVIDENCE ENGINE</i><i>OFFLINE RAG</i>
           </div>
         </div>
-        <h2 className="blk pad" id="h3" ref={h3}>Redefining digital experiences through art and <b>technology</b></h2>
+        <h2 className="blk pad" id="h3" ref={h3}>Deterministic governance enforcing strict <b>operational boundaries</b></h2>
         {WORDS.map((w, i) => (
           <p key={w.text} className="w" aria-label={w.text} ref={(el) => { words.current[i] = el; }}>
             {Array.from(w.text).map((ch, k) => <span key={k} aria-hidden="true">{ch}</span>)}
           </p>
         ))}
         <div className="blk glass" id="stats" ref={stats}>
-          <div className="sl"><h2>Every project is a fusion of strategy, creativity and passion</h2><p>Innovation philosophy</p></div>
+          <div className="sl"><h2>Provable integrity and policy supervision built into every inference</h2><p>Security Architecture</p></div>
           <div className="sr">
             {STATS.map((s) => (
               <div className="st" key={s.value}>
@@ -144,10 +144,10 @@ function Unlock() {
   return (
     <section id="unlock">
       <div className="ut" ref={ut}>
-        <h2>Clarix unlocks a faster, <b>smarter way to create</b></h2>
+        <h2>Zero-Trust Local Intelligence for <b>Sensitive Environments</b></h2>
         <div className="rule" />
-        <p>With just a prompt, you can bring any idea to life instantly, cut down production time, eliminate repetitive tasks, and stay fully in control of your creative vision.</p>
-        <Link className="pill" to="/agent">Launch now</Link>
+        <p>Clarix AI provides fully autonomous agentic workflows and retrieval on air-gapped workstations without external network telemetry. Every reasoning step is gated by deterministic security policies and cryptographically verifiable HMAC-SHA256 audit logs.</p>
+        <Link className="pill" to="/agent">Open Agent Cockpit</Link>
       </div>
     </section>
   );
@@ -280,9 +280,9 @@ function Pinnacle() {
     <section id="pinnacle" ref={section}>
       <div className="pview">
         <canvas id="sparks" ref={canvas} aria-label="Clarix logo assembled from particles" />
-        <h2>The pinnacle of generative art</h2>
-        <p className="pl">Experience a new paradigm where your imagination meets our computational engine. Build entire worlds without writing a single line of code.</p>
-        <p className="pr">Designed for <b>visionaries</b></p>
+        <h2>Runs fully offline. Every answer is verified. Every action is provable.</h2>
+        <p className="pl">Air-gapped architecture where every prompt is scanned, every tool invocation is policy-governed, and every decision is immutably anchored to a cryptographic ledger.</p>
+        <p className="pr">Designed for <b>classified workloads</b></p>
       </div>
     </section>
   );
@@ -290,10 +290,10 @@ function Pinnacle() {
 
 /* ---------------- future + footer ---------------- */
 const COLUMNS = [
-  { title: 'Products', links: ['Studio', 'Engine', 'Enterprise'] },
-  { title: 'Learn', links: ['Blog', 'Research', 'Documentation'] },
-  { title: 'About', links: ['Company', 'Careers', 'Contact'] },
-  { title: 'Legal', links: ['Terms & Conditions', 'Privacy Policy'] },
+  { title: 'Console', links: ['Overview', 'AI Agent', 'Local RAG'] },
+  { title: 'Security', links: ['Policy Engine', 'Human Approval', 'Threat Monitor'] },
+  { title: 'Proof', links: ['Audit Ledger', 'Cryptographic Integrity'] },
+  { title: 'System', links: ['System Health', 'Architecture', 'Ollama Engine'] },
 ];
 
 function Future() {
@@ -306,7 +306,7 @@ function Future() {
   };
   return (
     <section id="future">
-      <h3>The future of <b>digital art</b></h3>
+      <h3>Provable sovereignty for <b>autonomous intelligence</b></h3>
       <footer>
         <div>
           <h4>Clarix</h4>

@@ -106,6 +106,27 @@ export const NetworkApp: React.FC = () => {
 
   return (
     <Page>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+        <span
+          style={{
+            fontSize: '0.70rem',
+            fontWeight: 800,
+            padding: '3px 12px',
+            borderRadius: '9999px',
+            background: 'rgba(245, 158, 11, 0.15)',
+            color: '#d97706',
+            border: '1px solid rgba(245, 158, 11, 0.45)',
+            letterSpacing: '0.04em',
+            fontFamily: 'var(--font-mono)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />
+          SIMULATED NETWORK LAB
+        </span>
+      </div>
       <div className="nx-root">
         {status && topology ? (
           <>

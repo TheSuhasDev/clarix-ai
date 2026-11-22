@@ -83,6 +83,9 @@ class IntegrityManager:
             self.ctx.audit._key = self._real_key
             self.ctx.audit._upgrade_seq = self.ctx.audit._find_upgrade_seq()
 
+        self.real_db = getattr(self.ctx, "db", None)
+        self.real_audit = getattr(self.ctx, "audit", None)
+
         if self.demo_mode:
             self.demo_db = Database(self.demo_db_path)
             self.demo_audit = AuditLog(self.demo_db)
@@ -174,23 +177,39 @@ class IntegrityManager:
             if not hmac.compare_digest(saved_sig or "", cur_sig):
                 cur_state, _ = self.compute_security_state()
                 diffs = []
+
+                # Bidirectional Policy Comparison
                 cur_pols = {p["id"]: p["enabled"] for p in cur_state.get("policies", [])}
-                for p in saved_state.get("policies", []):
-                    pid = p["id"]
-                    if pid in cur_pols and cur_pols[pid] != p["enabled"]:
-                        diffs.append(f"policy {pid}: expected {int(p['enabled'])}, found {int(cur_pols[pid])}")
+                saved_pols = {p["id"]: p["enabled"] for p in saved_state.get("policies", [])}
+                for pid in sorted(set(cur_pols.keys()) | set(saved_pols.keys())):
+                    if pid not in saved_pols:
+                        diffs.append(f"policy {pid} added: signed=<missing>, found=enabled={cur_pols[pid]}")
+                    elif pid not in cur_pols:
+                        diffs.append(f"policy {pid} removed: signed=enabled={saved_pols[pid]}, found=<deleted>")
+                    elif cur_pols[pid] != saved_pols[pid]:
+                        diffs.append(f"{pid} enabled: signed={saved_pols[pid]}, found={cur_pols[pid]}")
 
+                # Bidirectional Tool Comparison
                 cur_tools = {t["id"]: t["level"] for t in cur_state.get("tools", [])}
-                for t in saved_state.get("tools", []):
-                    tid = t["id"]
-                    if tid in cur_tools and cur_tools[tid] != t["level"]:
-                        diffs.append(f"tool {tid}: expected {t['level']}, found {cur_tools[tid]}")
+                saved_tools = {t["id"]: t["level"] for t in saved_state.get("tools", [])}
+                for tid in sorted(set(cur_tools.keys()) | set(saved_tools.keys())):
+                    if tid not in saved_tools:
+                        diffs.append(f"tool {tid} added: signed=<missing>, found={cur_tools[tid]}")
+                    elif tid not in cur_tools:
+                        diffs.append(f"tool {tid} removed: signed={saved_tools[tid]}, found=<deleted>")
+                    elif cur_tools[tid] != saved_tools[tid]:
+                        diffs.append(f"tool {tid} level: signed={saved_tools[tid]}, found={cur_tools[tid]}")
 
+                # Bidirectional Document Comparison
                 cur_docs = {d["name"]: d["classification"] for d in cur_state.get("docs", [])}
-                for d in saved_state.get("docs", []):
-                    dname = d["name"]
-                    if dname in cur_docs and cur_docs[dname] != d["classification"]:
-                        diffs.append(f"document {dname}: expected {d['classification']}, found {cur_docs[dname]}")
+                saved_docs = {d["name"]: d["classification"] for d in saved_state.get("docs", [])}
+                for dname in sorted(set(cur_docs.keys()) | set(saved_docs.keys())):
+                    if dname not in saved_docs:
+                        diffs.append(f"document {dname} added: signed=<missing>, found={cur_docs[dname]}")
+                    elif dname not in cur_docs:
+                        diffs.append(f"document {dname} removed: signed={saved_docs[dname]}, found=<deleted>")
+                    elif cur_docs[dname] != saved_docs[dname]:
+                        diffs.append(f"document {dname} classification: signed={saved_docs[dname]}, found={cur_docs[dname]}")
 
                 evidence = "; ".join(diffs) if diffs else "Security state signature mismatch against active SQLite database"
                 return False, f"Signed security state tampered: {evidence}"
@@ -541,6 +560,8 @@ class IntegrityManager:
             if not ok:
                 self.trigger_lockdown(r, ev)
                 raise bad_request(f"Snapshot restored but failed integrity verification: {r} ({ev})")
+            self._cached_status = {"status": "VERIFIED", "lockdown": None}
+            self._last_checked = time.time()
             return {"ok": True, "action": "restore_snapshot", "message": "System restored from snapshot and verified."}
 
         elif action == "rebaseline":
@@ -615,6 +636,8 @@ class IntegrityManager:
                 except Exception:
                     pass
 
+                self._cached_status = {"status": "VERIFIED", "lockdown": None}
+                self._last_checked = time.time()
                 self.record_incident("RECOVERY_COMPLETED", f"Rebaseline by {operator}", reason)
                 return {"ok": True, "action": "rebaseline", "message": "System state successfully rebaselined and unlocked."}
 
@@ -687,17 +710,14 @@ class IntegrityManager:
         clarix_evidence = info.get("evidence", "") or (reasons[0] if reasons else "No tampering detected")
 
         # Determine legacy verification presentation:
-        # On healthy baseline/live keyed ledger: legacy cannot verify HMAC records
-        # After smart rehash attack: legacy is fooled (ok=True), Clarix detects HMAC/anchor violation
-        if clarix_ok and not locked:
-            legacy_status = "NOT_APPLICABLE"
-            legacy_message = "NOT APPLICABLE (legacy can't verify a keyed ledger)"
-        elif legacy.get("ok", False):
+        # On keyed ledger: legacy cannot verify HMAC records -> NOT APPLICABLE
+        # After smart rehash attack: legacy is fooled (ok=True) -> CLEAN (fooled)
+        if legacy.get("ok", False):
             legacy_status = "VALID"
             legacy_message = "CLEAN (fooled)"
         else:
-            legacy_status = legacy.get("status", "CORRUPTED")
-            legacy_message = legacy.get("message", "Plain SHA-256 continuity mismatch")
+            legacy_status = "NOT_APPLICABLE"
+            legacy_message = "NOT APPLICABLE (legacy can't verify a keyed ledger)"
 
         clarix_status = "TAMPER_DETECTED" if (locked or not clarix_ok) else "VERIFIED"
 
@@ -761,22 +781,83 @@ class IntegrityManager:
                     self.demo_audit = AuditLog(self.demo_db)
                 self.active_db = self.demo_db
                 self.active_audit = self.demo_audit
+                self._key = self._demo_key
+
+                # Re-point context DB and services to demo sandbox
+                if hasattr(self.ctx, "db"):
+                    self.ctx.db = self.demo_db
+                if hasattr(self.ctx, "audit"):
+                    self.ctx.audit = self.demo_audit
+                if hasattr(self.ctx, "policy") and hasattr(self.ctx.policy, "db"):
+                    self.ctx.policy.db = self.demo_db
+                if hasattr(self.ctx, "tools") and hasattr(self.ctx.tools, "db"):
+                    self.ctx.tools.db = self.demo_db
+                if hasattr(self.ctx, "rag") and hasattr(self.ctx.rag, "db"):
+                    self.ctx.rag.db = self.demo_db
 
                 # If demo DB has 0 events or does not exist, initialize with 40 seed events
                 if not self.demo_db_path.is_file() or self.demo_audit.count() == 0:
                     self.reset_demo()
                 else:
-                    self._key = self._demo_key
                     self.demo_audit._key = self._demo_key
                     self.demo_audit._anchor_cb = self.on_demo_audit_append
                     self.demo_audit._upgrade_seq = self.demo_audit._find_upgrade_seq()
+                    # Ensure 2 sample documents are seeded for workflows
+                    seeded = False
+                    try:
+                        if self.demo_db.one("SELECT COUNT(*) n FROM rag_documents")["n"] == 0:
+                            import struct
+                            demo_workspace = self.demo_data_dir / "workspace"
+                            demo_workspace.mkdir(parents=True, exist_ok=True)
+                            samples = [
+                                ("network_topology.csv", "device_id,hostname,ip_address,role,zone\nSW-001,core-switch-01,10.0.1.1,Core,Internal\nRT-001,border-router-01,10.0.0.1,Perimeter,DMZ\nFW-001,nextgen-firewall-01,10.0.0.254,Security,Boundary\nSRV-01,auth-vault-01,10.0.10.5,Authentication,Classified\n", "INTERNAL"),
+                                ("database_access_policy.txt", "SECURITY POLICY: Database Access Protocol POL-004.\nAll queries to internal SQLite databases must be strictly read-only SELECT statements.\nDestructive verbs (DROP, DELETE, UPDATE, INSERT, ALTER, ATTACH) are unconditionally denied by the AST gate.\nAny database query returning classified records must maintain taint propagation to the agent context.\n", "INTERNAL"),
+                            ]
+                            for fname, text_content, cls in samples:
+                                fpath = demo_workspace / fname
+                                try:
+                                    fpath.write_text(text_content, encoding="utf-8")
+                                except Exception:
+                                    pass
+                                size_kb = max(1, len(text_content.encode("utf-8")) // 1024)
+                                sh = hashlib.sha256(text_content.encode("utf-8")).hexdigest()
+                                now_iso = utcstamp()
+                                self.demo_db.x(
+                                    "INSERT OR REPLACE INTO rag_documents(name,size_kb,chunks,status,trust,classification,last_indexed,embedding_model,sha256,flagged_chunks) "
+                                    "VALUES(?,?,?,?,?,?,?,?,?,0)",
+                                    (fname, size_kb, 1, "INDEXED", "OPERATOR", cls, now_iso, "nomic-embed-text", sh)
+                                )
+                                dummy_emb = struct.pack(f"{128}f", *([0.0] * 128))
+                                self.demo_db.x(
+                                    "INSERT INTO rag_chunks(doc_name,page,text,embedding,dim,flagged) VALUES(?,?,?,?,?,0)",
+                                    (fname, 1, text_content[:2000], dummy_emb, 128)
+                                )
+                                seeded = True
+                    except Exception:
+                        pass
+                    if seeded or not self.state_file.is_file():
+                        self.sign_security_state()
             else:
-                self.active_db = self.ctx.db
-                self.active_audit = self.ctx.audit
+                self.active_db = getattr(self, "real_db", None) or self.ctx.db
+                self.active_audit = getattr(self, "real_audit", None) or self.ctx.audit
                 self._key = self._real_key
-                self.ctx.audit._key = self._real_key
-                self.ctx.audit._anchor_cb = self.on_real_audit_append
-                self.ctx.audit._upgrade_seq = self.ctx.audit._find_upgrade_seq()
+
+                # Re-point context DB and services back to real production files
+                if hasattr(self.ctx, "db"):
+                    self.ctx.db = self.active_db
+                if hasattr(self.ctx, "audit"):
+                    self.ctx.audit = self.active_audit
+                if hasattr(self.ctx, "policy") and hasattr(self.ctx.policy, "db"):
+                    self.ctx.policy.db = self.active_db
+                if hasattr(self.ctx, "tools") and hasattr(self.ctx.tools, "db"):
+                    self.ctx.tools.db = self.active_db
+                if hasattr(self.ctx, "rag") and hasattr(self.ctx.rag, "db"):
+                    self.ctx.rag.db = self.active_db
+
+                if self.ctx.audit is not None:
+                    self.ctx.audit._key = self._real_key
+                    self.ctx.audit._anchor_cb = self.on_real_audit_append
+                    self.ctx.audit._upgrade_seq = self.ctx.audit._find_upgrade_seq()
 
             if hasattr(self.ctx, "settings"):
                 try:
@@ -850,6 +931,34 @@ class IntegrityManager:
             for t in TOOLS.values():
                 con.execute("INSERT OR REPLACE INTO tools(id, level, executions, last_run) VALUES(?,?,0,NULL)",
                             (t.id, t.default_level))
+
+            # Seed 2 sample documents for demo mode RAG workflows
+            import struct
+            demo_workspace = self.demo_data_dir / "workspace"
+            demo_workspace.mkdir(parents=True, exist_ok=True)
+            samples = [
+                ("network_topology.csv", "device_id,hostname,ip_address,role,zone\nSW-001,core-switch-01,10.0.1.1,Core,Internal\nRT-001,border-router-01,10.0.0.1,Perimeter,DMZ\nFW-001,nextgen-firewall-01,10.0.0.254,Security,Boundary\nSRV-01,auth-vault-01,10.0.10.5,Authentication,Classified\n", "INTERNAL"),
+                ("database_access_policy.txt", "SECURITY POLICY: Database Access Protocol POL-004.\nAll queries to internal SQLite databases must be strictly read-only SELECT statements.\nDestructive verbs (DROP, DELETE, UPDATE, INSERT, ALTER, ATTACH) are unconditionally denied by the AST gate.\nAny database query returning classified records must maintain taint propagation to the agent context.\n", "INTERNAL"),
+            ]
+            for fname, text_content, cls in samples:
+                fpath = demo_workspace / fname
+                try:
+                    fpath.write_text(text_content, encoding="utf-8")
+                except Exception:
+                    pass
+                size_kb = max(1, len(text_content.encode("utf-8")) // 1024)
+                sh = hashlib.sha256(text_content.encode("utf-8")).hexdigest()
+                now_iso = utcstamp()
+                con.execute(
+                    "INSERT OR REPLACE INTO rag_documents(name,size_kb,chunks,status,trust,classification,last_indexed,embedding_model,sha256,flagged_chunks) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,0)",
+                    (fname, size_kb, 1, "INDEXED", "OPERATOR", cls, now_iso, "nomic-embed-text", sh)
+                )
+                dummy_emb = struct.pack(f"{128}f", *([0.0] * 128))
+                con.execute(
+                    "INSERT INTO rag_chunks(doc_name,page,text,embedding,dim,flagged) VALUES(?,?,?,?,?,0)",
+                    (fname, 1, text_content[:2000], dummy_emb, 128)
+                )
 
             con.commit()
 

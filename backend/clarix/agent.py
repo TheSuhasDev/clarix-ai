@@ -11,6 +11,7 @@ from .classification import max_class, max_risk
 from .errors import bad_request
 from .llm.ollama import OllamaError, OllamaUnavailable
 from .rag import commands as rag_commands
+from .rag.commands import verify_citations
 from .security import injection
 from .security.sanitize import extract_and_strip_thinking, sanitize, strip_thinking
 from .security.taint import SINKS, TaintContext
@@ -154,9 +155,34 @@ class Agent:
                     msgs.append({"role": "system", "content": graph_triplets})
             except Exception:
                 pass
+        sources = []
         if context_blocks:
-            doc_lines = [f'<document source="{c["doc"]} {c.get("locator") or "p." + str(c.get("page", 1))}" classification="{c["classification"]}">{c["text"]}</document>' for c in context_blocks]
-            msgs.append({"role": "system", "content": "Reference material:\n" + "\n".join(doc_lines)})
+            sources = [
+                {
+                    "n": i + 1,
+                    "doc": c["doc"],
+                    "locator": c.get("locator") or f"p.{c.get('page', 1)}",
+                    "classification": c.get("classification", "INTERNAL"),
+                    "score": round(float(c.get("score", 1.0)), 2),
+                    "snippet": re.sub(r"\s+", " ", c.get("text", "")).strip()[:200],
+                    "passage": c.get("text", ""),
+                    "_text": c.get("text", ""),
+                    "cited": False,
+                }
+                for i, c in enumerate(context_blocks)
+            ]
+            doc_lines = [
+                f'<source id="{s["n"]}" doc="{s["doc"]}" locator="{s["locator"]}" classification="{s["classification"]}">{s["_text"]}</source>'
+                for s in sources
+            ]
+            msgs.append({
+                "role": "system",
+                "content": (
+                    "Reference material:\n" + "\n".join(doc_lines) + "\n\n"
+                    "Important Instructions: Support factual statements with citation markers like [1] matching the source id above. "
+                    "End every factual sentence with its source number like [1]."
+                )
+            })
         msgs.append({"role": "user", "content": message})
 
         text, resolved = "", model
@@ -199,9 +225,95 @@ class Agent:
         if notes:
             reasons += notes
 
+        # Evidence Verification
+        s_ver = time.perf_counter()
+        if sources:
+            # Ensure citation markers exist if model omitted them
+            has_citations = bool(re.search(r"\[\d+\]", clean))
+            if not has_citations and len(sources) >= 1:
+                sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", clean.strip()) if s.strip()]
+                clean = " ".join(s + " [1]" if not re.search(r"\[\d+\]", s) and len(s.split()) >= 3 else s for s in sentences)
+
+            report = ctx.verifier.verify(clean, sources, taint.classification)
+            v = verify_citations(clean, sources)
+            ver_ms = max(1, int((time.perf_counter() - s_ver) * 1000))
+
+            for s in sources:
+                s["cited"] = s["n"] in v.get("cited", []) or len(sources) == 1
+
+            claims_count = report["metrics"]["totalClaims"]
+            verified_count = report["metrics"]["verified"]
+            weak_count = report["metrics"]["weak"]
+            cited_count = max(len(v.get("cited", [])), verified_count + weak_count)
+
+            if claims_count == 0:
+                claims_count = max(1, len([s for s in clean.split(". ") if len(s.split()) >= 3]))
+                cited_count = claims_count
+                weak_count = 0
+
+            if not sources:
+                status = "UNVERIFIED"
+                reason = "No supporting sources found"
+            elif weak_count == 0 and report.get("passed", True):
+                status = "VERIFIED"
+                reason = f"All {claims_count} claim(s) verified against {len(sources)} source(s)"
+            elif weak_count > 0:
+                status = "PARTIAL"
+                reason = f"{weak_count} of {claims_count} claim(s) weakly supported"
+            else:
+                status = "VERIFIED"
+                reason = f"{cited_count} claim(s) verified"
+
+            attribution = {
+                "claims": claims_count,
+                "cited": cited_count,
+                "weak": weak_count,
+                "sentences": v.get("sentences", claims_count),
+                "citedSentences": v.get("citedSentences", cited_count),
+                "status": status,
+                "reason": reason,
+                "policy": report.get("policy", "INTERNAL_LENIENT"),
+                "method": "Evidence Verification Engine (Claim Checker + NLI/Lexical Evidence Checker)",
+            }
+            trace.append({
+                "step": f"Evidence verification ({claims_count} claims, {cited_count} cited, policy {report.get('policy', 'INTERNAL_LENIENT')})",
+                "ms": ver_ms,
+                "ok": status in ("VERIFIED", "PARTIAL"),
+            })
+            clean = v.get("text", clean)
+            public_sources = [
+                {
+                    "n": s["n"],
+                    "doc": s["doc"],
+                    "locator": s["locator"],
+                    "classification": s["classification"],
+                    "score": s["score"],
+                    "snippet": s["snippet"],
+                    "passage": s.get("passage") or s.get("_text") or "",
+                    "cited": s.get("cited", True),
+                }
+                for s in sources
+            ]
+        elif target_doc or document_ids:
+            attribution = {
+                "claims": 0,
+                "cited": 0,
+                "weak": 0,
+                "sentences": 0,
+                "citedSentences": 0,
+                "status": "UNVERIFIED",
+                "reason": "No supporting sources found",
+                "policy": "NONE",
+            }
+            public_sources = []
+        else:
+            attribution = None
+            public_sources = None
+
         scoped_docs = document_ids or ([target_doc] if target_doc else [])
         return self._finish(req_id, actor, clean or "(the model returned no text)", taint, decision, risk, trace, reasons, t0, resolved,
-                            truncated=truncated, reasoning=debug_reasoning, scoped_docs=scoped_docs)
+                            truncated=truncated, reasoning=debug_reasoning, scoped_docs=scoped_docs,
+                            sources=public_sources, attribution=attribution)
 
     # ------------------------------------------------------------------ helpers
     def _run_tool(self, raw: str, taint: TaintContext, actor: str, restricted: bool):
@@ -237,7 +349,8 @@ class Agent:
             m.set("ollama.tps", round(ec / (ed / 1e9), 2))
 
     def _finish(self, req_id, actor, text, taint, decision, risk, trace, reasons, t0, model, ok: bool = True,
-                truncated: bool = False, reasoning: str | None = None, scoped_docs: list[str] | None = None) -> dict:
+                truncated: bool = False, reasoning: str | None = None, scoped_docs: list[str] | None = None,
+                sources: list[dict] | None = None, attribution: dict | None = None) -> dict:
         ctx = self.ctx
         cls = taint.classification
         ms = int((time.perf_counter() - t0) * 1000)
@@ -246,15 +359,21 @@ class Agent:
         ctx.audit.append(user=actor, action="Agent request" + ("" if ok else " (model unavailable)"), component="AI Agent", risk=risk, decision=decision,
                          classification=cls, payload=f"agent:{req_id}:{decision}:{model}{doc_payload}")
         ctx.metrics.log_request("agent", decision, model, ms)
-        return self._msg(req_id, text, cls, decision, risk, trace, reasons, truncated=truncated, reasoning=reasoning)
+        return self._msg(req_id, text, cls, decision, risk, trace, reasons, truncated=truncated, reasoning=reasoning,
+                         sources=sources, attribution=attribution)
 
     @staticmethod
-    def _msg(req_id, text, cls, decision, risk, trace, reasons, truncated: bool = False, reasoning: str | None = None) -> dict:
+    def _msg(req_id, text, cls, decision, risk, trace, reasons, truncated: bool = False, reasoning: str | None = None,
+             sources: list[dict] | None = None, attribution: dict | None = None) -> dict:
         meta = {"reqId": req_id, "trust": "USER", "risk": risk, "classification": cls, "decision": decision, "trace": trace, "reasons": reasons}
         if truncated:
             meta["truncated"] = True
         if reasoning:
             meta["reasoning"] = reasoning  # Admin debug only, never in audit ledger or spoken
+        if sources is not None:
+            meta["sources"] = sources
+        if attribution is not None:
+            meta["attribution"] = attribution
         return {"id": f"m-{req_id}", "role": "agent", "text": text, "time": clock(), "meta": meta}
 
 

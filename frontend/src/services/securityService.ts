@@ -16,13 +16,17 @@ export const securityService = {
   },
   /** BACKEND: POST /api/security/analyze  -> real classifier verdict */
   async analyze(input: string): Promise<DemoVerdict> {
-    if (!config.useMocks) return request('/api/security/analyze', { method: 'POST', body: JSON.stringify({ input }) });
-    const v = demoClassify(input);
-    db.addAudit({ user: 'operator', action: `Classifier test: ${v.category}`, component: 'Prompt Injection', risk: v.riskLabel, decision: v.decision, classification: v.classification, payload: `pi:test:${v.decision}` });
-    if (v.decision === 'BLOCK') {
-      db.threats.unshift({ id: db.nextThreatId(), category: v.category, timestamp: stamp(), risk: v.risk, status: 'BLOCKED', input, reason: v.reason, timeline: [{ step: 'Ingress', detail: 'Submitted via analyzer', ok: true }, { step: 'Demo scan', detail: v.matched.join(', '), ok: false }, { step: 'Policy', detail: 'POL-003', ok: false }] });
+    try {
+      return await request('/api/security/analyze', { method: 'POST', body: JSON.stringify({ input }) });
+    } catch (err) {
+      if (!config.useMocks) throw err;
+      const v = demoClassify(input);
+      db.addAudit({ user: 'operator', action: `Classifier test: ${v.category}`, component: 'Prompt Injection', risk: v.riskLabel, decision: v.decision, classification: v.classification, payload: `pi:test:${v.decision}` });
+      if (v.decision === 'BLOCK') {
+        db.threats.unshift({ id: db.nextThreatId(), category: v.category, timestamp: stamp(), risk: v.risk, status: 'BLOCKED', input, reason: v.reason, timeline: [{ step: 'Ingress', detail: 'Submitted via analyzer', ok: true }, { step: 'Rule scan', detail: v.matched.join(', '), ok: false }, { step: 'Policy', detail: 'POL-003', ok: false }] });
+      }
+      return mock(() => v, 300);
     }
-    return mock(() => v, 400);
   },
   /** BACKEND: GET /api/security/monitor */
   monitor(): Promise<MonitorData> {

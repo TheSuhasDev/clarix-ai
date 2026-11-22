@@ -78,7 +78,7 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: ShieldAlert,
         badge: { kind: 'count', source: 'threats', tone: 'red' },
       },
-      { path: '/security-monitor', label: 'Threats', icon: Shield },
+      { path: '/security-monitor', label: 'Harness', icon: Shield },
       {
         path: '/air-gap',
         label: 'Air-Gap',
@@ -87,7 +87,7 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         path: '/network',
-        label: 'Network',
+        label: 'Network Lab (simulated)',
         icon: NetworkIcon,
         children: [
           { path: '/network/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -200,7 +200,7 @@ export function useSidebarSections(): SidebarSection[] {
           },
           {
             key: 'security-monitor',
-            label: 'Threats',
+            label: 'Harness',
             icon: Shield,
             href: '/security-monitor',
           },

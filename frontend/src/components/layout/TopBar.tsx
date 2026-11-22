@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Bell, Menu } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useConsole } from '../../state/ConsoleContext';
-import { auditService, config, type IntegrityStatus } from '../../services';
+import { auditService, type IntegrityStatus } from '../../services';
 import { PillNav } from '../navigation/PillNav';
 import styles from './Layout.module.css';
 
@@ -100,12 +100,6 @@ export function TopBar() {
           <NavLink to="/approvals" className={styles.bell} aria-label={`${alerts} approval${alerts > 1 ? 's' : ''} waiting`}>
             <Bell width={14} height={14} />{alerts} approval{alerts > 1 ? 's' : ''} waiting
           </NavLink>
-        )}
-
-        {config.useMocks && (
-          <span className={styles.demo} title="All figures in this console are mock data until the backend is connected.">
-            <i />SIMULATED DATA
-          </span>
         )}
       </div>
 

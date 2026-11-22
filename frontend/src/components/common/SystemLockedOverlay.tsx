@@ -183,7 +183,7 @@ export function SystemLockedOverlay() {
               What was modified (Plain English):
             </div>
             <div style={{ backgroundColor: '#2d0a0a', border: '1px solid #7f1d1d', borderRadius: '6px', padding: '10px 14px', color: '#fee2e2', fontSize: '0.88rem', fontWeight: 600 }}>
-              {reason}
+              {typeof reason === 'object' ? JSON.stringify(reason) : String(reason)}
             </div>
           </div>
         )}
@@ -210,7 +210,7 @@ export function SystemLockedOverlay() {
                 overflowY: 'auto',
               }}
             >
-              {evidence}
+              {typeof evidence === 'object' ? JSON.stringify(evidence, null, 2) : String(evidence)}
             </pre>
           </div>
         )}

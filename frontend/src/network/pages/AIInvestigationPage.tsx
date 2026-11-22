@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles,
   Send,
@@ -32,9 +32,13 @@ export const AIInvestigationPage: React.FC<AIInvestigationPageProps> = ({
   const [query, setQuery] = useState<string>(initialQuery);
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<DiagnoseResponse | null>(null);
+  const [networkError, setNetworkError] = useState<string | null>(null);
   const [copiedIncidentId, setCopiedIncidentId] = useState<string | null>(null);
   const [showEvidenceModal, setShowEvidenceModal] = useState<boolean>(false);
   const [activeTabFault, setActiveTabFault] = useState<string>('all');
+
+  const resultRef = useRef<HTMLDivElement | null>(null);
+  const shouldScrollRef = useRef<boolean>(false);
 
   // Human Approval Modal state
   const [approvalModalOpen, setApprovalModalOpen] = useState<boolean>(false);
@@ -50,21 +54,34 @@ export const AIInvestigationPage: React.FC<AIInvestigationPageProps> = ({
     'Explain the incorrect configuration.',
   ];
 
-  const runAnalysis = async (q: string, mode: DemoMode) => {
+  const runAnalysis = async (q: string, mode: DemoMode, shouldScroll = true) => {
+    if (loading) return; // Prevent double clicks
     setLoading(true);
+    setNetworkError(null);
+    shouldScrollRef.current = shouldScroll;
     try {
       const resp = await networkService.diagnose(q, mode);
-      setResult(resp);
-    } catch {
-      // handled in service
+      setResult(resp.data);
+      if (resp.error) {
+        setNetworkError(resp.error);
+      }
+    } catch (err: any) {
+      setNetworkError(err?.message || `Network service error at ${networkService.getApiBase()}`);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    runAnalysis(query, demoMode);
+    runAnalysis(query, demoMode, false);
   }, [demoMode]);
+
+  useEffect(() => {
+    if (shouldScrollRef.current && !loading && result && resultRef.current) {
+      shouldScrollRef.current = false;
+      resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [loading, result]);
 
   const handleCopyCommands = (inc: FaultDetail) => {
     navigator.clipboard.writeText(inc.commands.join('\n'));
@@ -95,7 +112,7 @@ export const AIInvestigationPage: React.FC<AIInvestigationPageProps> = ({
       <DemoSelector
         currentMode={demoMode}
         onSelectMode={(mode) => onSelectDemoMode(mode)}
-        onAnalyzeWithAI={() => runAnalysis('Analyze Network', demoMode)}
+        onAnalyzeWithAI={() => runAnalysis('Analyze Network', demoMode, true)}
         isAnalyzing={loading}
       />
 
@@ -178,7 +195,7 @@ export const AIInvestigationPage: React.FC<AIInvestigationPageProps> = ({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                runAnalysis(query, demoMode);
+                runAnalysis(query, demoMode, true);
               }}
               style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}
             >
@@ -223,14 +240,18 @@ export const AIInvestigationPage: React.FC<AIInvestigationPageProps> = ({
                   gap: '8px',
                   padding: '10px 24px',
                   borderRadius: '9999px',
-                  background: 'linear-gradient(135deg, #176BFF 0%, #00D9F5 100%)',
+                  background: loading
+                    ? 'rgba(23, 107, 255, 0.5)'
+                    : 'linear-gradient(135deg, #176BFF 0%, #00D9F5 100%)',
                   color: '#FFFFFF',
                   fontSize: '0.85rem',
                   fontWeight: 700,
                   border: '1px solid rgba(255, 255, 255, 0.45)',
-                  boxShadow: '0 6px 20px rgba(23, 107, 255, 0.32)',
+                  boxShadow: loading ? 'none' : '0 6px 20px rgba(23, 107, 255, 0.32)',
                   cursor: loading ? 'wait' : 'pointer',
                   transition: 'all 200ms ease',
+                  opacity: loading ? 0.75 : 1,
+                  pointerEvents: loading ? 'none' : 'auto',
                 }}
               >
                 <Send size={15} />
@@ -251,7 +272,7 @@ export const AIInvestigationPage: React.FC<AIInvestigationPageProps> = ({
               type="button"
               onClick={() => {
                 setQuery(sq);
-                runAnalysis(sq, demoMode);
+                runAnalysis(sq, demoMode, true);
               }}
               style={{
                 fontSize: '0.74rem',
@@ -324,7 +345,34 @@ export const AIInvestigationPage: React.FC<AIInvestigationPageProps> = ({
 
       {/* Analysis Output Section */}
       {!loading && result && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div ref={resultRef} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {networkError && (
+            <div
+              role="alert"
+              style={{
+                padding: '14px 20px',
+                borderRadius: '16px',
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1.5px solid rgba(245, 158, 11, 0.45)',
+                color: '#b45309',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                boxShadow: '0 4px 16px rgba(245, 158, 11, 0.08)',
+              }}
+            >
+              <AlertTriangle size={20} color="#d97706" style={{ flexShrink: 0 }} />
+              <div style={{ flex: 1, fontSize: '0.84rem', lineHeight: 1.45 }}>
+                <div style={{ fontWeight: 800, color: '#92400e' }}>
+                  {networkError}
+                </div>
+                <div style={{ fontSize: '0.76rem', color: '#b45309', marginTop: '2px' }}>
+                  Operating in offline simulation mode. Diagnostic evidence generated from internal heuristics.
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Executive Diagnostic Result Banner */}
           <div
             className="dashboard-card specular-rim"

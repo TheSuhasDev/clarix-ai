@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
-import { Loading } from './components/common';
+import { Loading, ErrorBoundary } from './components/common';
 import { ConsoleProvider } from './state/ConsoleContext';
 
 const Landing = lazy(() => import('./landing/Landing'));
@@ -31,8 +31,9 @@ export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <ConsoleProvider>
-        <Suspense fallback={fallback}>
-          <Routes>
+        <ErrorBoundary>
+          <Suspense fallback={fallback}>
+            <Routes>
             <Route path="/" element={<Landing />} />
             <Route element={<AppShell />}>
               <Route path="/overview" element={<Overview />} />
@@ -65,6 +66,7 @@ export default function App() {
             </Route>
           </Routes>
         </Suspense>
+        </ErrorBoundary>
       </ConsoleProvider>
     </BrowserRouter>
   );

@@ -79,7 +79,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Header Banner */}
       <HeaderBanner
-        title="Network Incidents Management"
+        title="Network Security Dashboard"
         subtitle="Monitor, investigate, prioritize and resolve network incidents."
         onRefresh={onRefresh}
         isRefreshing={isRefreshing}

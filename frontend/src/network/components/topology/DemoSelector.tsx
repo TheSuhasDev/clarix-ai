@@ -190,15 +190,19 @@ export const DemoSelector: React.FC<DemoSelectorProps> = ({
             gap: '8px',
             padding: '9px 20px',
             borderRadius: '9999px',
-            background: 'linear-gradient(135deg, #176BFF 0%, #00D9F5 100%)',
+            background: isAnalyzing
+              ? 'rgba(23, 107, 255, 0.5)'
+              : 'linear-gradient(135deg, #176BFF 0%, #00D9F5 100%)',
             color: '#FFFFFF',
             fontSize: '0.82rem',
             fontWeight: 700,
             letterSpacing: '0.3px',
             border: '1px solid rgba(255, 255, 255, 0.45)',
-            boxShadow: '0 6px 20px rgba(23, 107, 255, 0.32), inset 0 1px 1px rgba(255, 255, 255, 0.6)',
+            boxShadow: isAnalyzing ? 'none' : '0 6px 20px rgba(23, 107, 255, 0.32), inset 0 1px 1px rgba(255, 255, 255, 0.6)',
             cursor: isAnalyzing ? 'wait' : 'pointer',
             transition: 'all 200ms ease',
+            opacity: isAnalyzing ? 0.75 : 1,
+            pointerEvents: isAnalyzing ? 'none' : 'auto',
           }}
         >
           <Sparkles size={16} />

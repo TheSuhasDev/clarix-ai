@@ -317,16 +317,53 @@ class AgentRunner:
         ])
         return "\n".join(lines)
 
+    def _check_run_timeout(self, run: AgentRun) -> None:
+        if not run:
+            return
+        now = time.time()
+        if run.status == "AWAITING_PLAN_APPROVAL" and (now - run.created_at) > 300:
+            run.status = "EXPIRED"
+            run.stop_reason = "Plan approval timed out after 300s"
+            self._save_run(run)
+        elif run.status == "RUNNING" and (now - run.updated_at) > 120 and run.id not in self._threads:
+            run.status = "FAILED"
+            run.stop_reason = "Execution timed out after 120s"
+            self._save_run(run)
+
     def get_run(self, run_id: str) -> AgentRun | None:
         """Get agent run by ID."""
         with self._lock:
-            return self._runs.get(run_id)
+            run = self._runs.get(run_id)
+            if run:
+                self._check_run_timeout(run)
+            return run
 
     def list_runs(self, limit: int = 50) -> list[dict[str, Any]]:
         """List all runs ordered by creation time."""
         with self._lock:
+            for r in self._runs.values():
+                self._check_run_timeout(r)
             sorted_runs = sorted(self._runs.values(), key=lambda r: r.created_at, reverse=True)
             return [r.to_dict() for r in sorted_runs[:limit]]
+
+    def cancel_run(self, run_id: str, actor: str = "operator") -> AgentRun:
+        """Cancel an in-flight or pending agent run."""
+        run = self.get_run(run_id)
+        if not run:
+            raise not_found(f"Run {run_id} not found")
+        run.status = "CANCELLED"
+        run.stop_reason = "Cancelled by operator"
+        self._save_run(run)
+        self.ctx.audit.append(
+            user=actor,
+            action="Agent Run Cancelled",
+            component="Agent Runner",
+            risk="LOW",
+            decision="ALLOW",
+            classification="INTERNAL",
+            payload=f"runner:cancel:{run_id}",
+        )
+        return run
 
     def approve_plan(
         self,
@@ -567,7 +604,7 @@ class AgentRunner:
                 act_step.decision = decision
                 act_step.risk = risk
                 act_step.error = error
-                act_step.duration_ms = int((time.time() - t_step_start) * 1000)
+                act_step.duration_ms = max(1, int((time.time() - t_step_start) * 1000))
                 run.steps.append(act_step)
                 step_index += 1
                 self._save_run(run)
@@ -622,7 +659,7 @@ class AgentRunner:
                     output=sanitized_obs,
                     decision=obs_decision,
                     risk=obs_scan.risk_label if obs_scan.decision == "BLOCK" else "LOW",
-                    duration_ms=int((time.time() - obs_start) * 1000),
+                    duration_ms=max(1, int((time.time() - obs_start) * 1000)),
                     timestamp=time.strftime("%H:%M:%S", time.gmtime()),
                 )
                 run.steps.append(obs_step)
@@ -635,7 +672,7 @@ class AgentRunner:
                     index=step_index,
                     phase="reflect",
                     thought=f"Observation evaluated: {plan_step.description} completed successfully. Verifying step goals against plan.",
-                    duration_ms=int((time.time() - ref_start) * 1000),
+                    duration_ms=max(1, int((time.time() - ref_start) * 1000)),
                     timestamp=time.strftime("%H:%M:%S", time.gmtime()),
                 )
                 run.steps.append(reflect_step)
@@ -670,16 +707,22 @@ class AgentRunner:
         self, run: AgentRun, taint: TaintContext, sources: list[dict[str, Any]]
     ) -> None:
         """Synthesize answer and run Self-Check Evidence Verification."""
-        answer_text = (
-            f"Completed execution of goal '{run.goal}' under role '{run.role.upper()}'.\n\n"
-            f"Findings & Summary:\n"
-            f"• All planned ReAct cycles executed within budget ({len(run.steps)} steps recorded).\n"
-            f"• Evidence verified against indexed workspace sources.\n"
-            f"• Air-gap boundaries and HMAC-SHA256 audit ledger strictly maintained."
-        )
-
         if sources:
-            answer_text += f" [1]"
+            answer_text = (
+                f"Completed execution of goal '{run.goal}' under role '{run.role.upper()}'.\n\n"
+                f"Findings & Summary:\n"
+                f"• All planned ReAct cycles executed within budget ({len(run.steps)} steps recorded).\n"
+                f"• Evidence verified against indexed workspace sources [1].\n"
+                f"• Air-gap boundaries and HMAC-SHA256 audit ledger strictly maintained."
+            )
+        else:
+            answer_text = (
+                f"Completed execution of goal '{run.goal}' under role '{run.role.upper()}'.\n\n"
+                f"Findings & Summary:\n"
+                f"• All planned ReAct cycles executed within budget ({len(run.steps)} steps recorded).\n"
+                f"• No relevant documents were found in the local vector store for the requested query.\n"
+                f"• Air-gap boundaries and HMAC-SHA256 audit ledger strictly maintained."
+            )
 
         # Self-Check Verification via EvidenceVerificationEngine
         verification = None
@@ -689,11 +732,13 @@ class AgentRunner:
                 # Re-plan once on verification failure
                 correction = self.ctx.verifier.generate_correction_prompt(verification.get("violations", []))
                 # Append reflection step
+                ref_start = time.time()
                 run.steps.append(
                     RunStep(
                         index=len(run.steps) + 1,
                         phase="reflect",
                         thought=f"Evidence verification failed. Re-planning once with correction prompt: {correction[:120]}...",
+                        duration_ms=max(1, int((time.time() - ref_start) * 1000)),
                         timestamp=time.strftime("%H:%M:%S", time.gmtime()),
                     )
                 )
@@ -702,6 +747,13 @@ class AgentRunner:
                 if not verification.get("passed", True):
                     answer_text = f"[UNVERIFIED] {answer_text}"
                     run.meta["trust"] = "UNTRUSTED"
+        elif not sources:
+            verification = {
+                "passed": False,
+                "status": "NO_EVIDENCE",
+                "reason": "No relevant documents were found in the local vector store",
+                "violations": ["0 source passages retrieved from local index"],
+            }
 
         run.verification = verification
         run.result_text = answer_text

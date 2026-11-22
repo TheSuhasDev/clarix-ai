@@ -104,10 +104,16 @@ def overview(ctx, req):
     except Exception:
         clarix_outbound = 0
     blocked_egress = ctx.db.one("SELECT COUNT(*) n FROM blocked_connections")["n"] if hasattr(ctx, "db") else 0
+    mgr = _active_approvals(ctx)
+    pending_approvals = mgr.pending_count()
+    runner = getattr(ctx, "agentic_runner", getattr(ctx, "runner", None))
+    if runner:
+        with runner._lock:
+            pending_approvals += sum(1 for r in runner._runs.values() if r.status == "AWAITING_PLAN_APPROVAL")
 
     return {"agent": {"status": "RUNNING", "note": "Request pipeline active"}, "ollama": ollama,
             "threats": ctx.threats.count(), "blocked": ctx.db.one("SELECT COUNT(*) n FROM audit_events WHERE decision='BLOCK'")["n"],
-            "toolCalls": int(ctx.metrics.get("tool.calls")), "pendingApprovals": ctx.approvals.pending_count(), "auditEvents": ctx.audit.count(),
+            "toolCalls": int(ctx.metrics.get("tool.calls")), "pendingApprovals": pending_approvals, "auditEvents": ctx.audit.count(),
             "outbound": posture["outbound"], "clarixOutbound": clarix_outbound, "blockedEgress": blocked_egress,
             "activePolicies": sum(p["enabled"] for p in pols), "totalPolicies": len(pols),
             "events": _live_events(ctx) + events, "activity": buckets, "threatCats": ctx.threats.categories(),
@@ -249,31 +255,161 @@ def tool_execute(ctx, req):
     return {"output": r.output, "ok": r.ok, "ms": r.ms, "decision": r.decision, "approvalId": r.approval_id, "policies": r.policies}
 
 
+def _active_approvals(ctx):
+    if hasattr(ctx, "integrity") and getattr(ctx.integrity, "demo_mode", False) and hasattr(ctx.integrity, "demo_db") and ctx.integrity.demo_db:
+        from .approvals import Approvals, Grants
+        demo_grants = Grants(ctx.integrity.demo_db)
+        return Approvals(ctx.integrity.demo_db, ctx.integrity.demo_audit, ctx.settings.approval_timeout_s, demo_grants)
+    return ctx.approvals
+
+
 def approvals_list(ctx, req):
-    return ctx.approvals.list()
+    mgr = _active_approvals(ctx)
+    items = mgr.list()
+
+    # In Demo Mode: seed 1 pending approval if list is completely empty
+    runner = getattr(ctx, "agentic_runner", getattr(ctx, "runner", None))
+    has_pending_agent_run = (
+        runner
+        and any(r.status == "AWAITING_PLAN_APPROVAL" for r in runner._runs.values())
+    )
+    if hasattr(ctx, "integrity") and getattr(ctx.integrity, "demo_mode", False):
+        if not any(x.get("status") == "PENDING" for x in items) and not has_pending_agent_run:
+            mgr.create(
+                action="Read confidential executive strategy brief via RAG",
+                tool="file_reader",
+                resource="strategy_brief_confidential.docx",
+                risk="HIGH",
+                classification="CONFIDENTIAL",
+                requester="Research Agent (analyst)",
+                pending={"kind": "rag_read", "doc": "strategy_brief_confidential.docx"}
+            )
+            items = mgr.list()
+
+    # Check agent runner runs for plan approvals
+    if runner:
+        with runner._lock:
+            for r in runner._runs.values():
+                runner._check_run_timeout(r)
+                now = time.time()
+                created_dt = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(r.created_at))
+                expires_at = r.created_at + 300.0
+                plan_steps = [
+                    {
+                        "step": p.step,
+                        "description": p.description,
+                        "tool": p.tool,
+                        "risk": p.risk,
+                        "needsApproval": p.needs_approval,
+                    }
+                    for p in r.plan
+                ]
+                tools_used = list(dict.fromkeys(p.tool for p in r.plan))
+
+                if r.status == "AWAITING_PLAN_APPROVAL":
+                    items.insert(0, {
+                        "id": f"apr-{r.id}",
+                        "runId": r.id,
+                        "createdAt": created_dt,
+                        "expiresAt": expires_at,
+                        "risk": "HIGH" if any(p.risk == "HIGH" for p in r.plan) else "MEDIUM",
+                        "classification": "INTERNAL",
+                        "action": f"Execute Plan-then-Act plan for {r.role}: {r.goal}",
+                        "tool": ", ".join(tools_used) or "agent_plan",
+                        "resource": f"Agent Run ({r.id})",
+                        "requester": f"Agent ({r.role})",
+                        "role": r.role,
+                        "status": "PENDING",
+                        "planSteps": plan_steps,
+                        "kind": "agent_plan",
+                    })
+                elif r.status in ("COMPLETED", "REJECTED", "EXPIRED", "CANCELLED", "FAILED") and r.plan_mode == "plan_then_act":
+                    resolved_dt = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(r.updated_at))
+                    dec = "APPROVED" if r.status in ("RUNNING", "COMPLETED") else "EXPIRED" if r.status == "EXPIRED" else "DENIED"
+                    items.append({
+                        "id": f"apr-{r.id}",
+                        "runId": r.id,
+                        "createdAt": created_dt,
+                        "expiresAt": expires_at,
+                        "resolvedAt": resolved_dt,
+                        "resolvedBy": r.actor or "operator",
+                        "note": r.stop_reason or ("Approved plan and executed" if dec == "APPROVED" else "Denied"),
+                        "risk": "HIGH" if any(p.risk == "HIGH" for p in r.plan) else "MEDIUM",
+                        "classification": "INTERNAL",
+                        "action": f"Execute Plan-then-Act plan for {r.role}: {r.goal}",
+                        "tool": ", ".join(tools_used) or "agent_plan",
+                        "resource": f"Agent Run ({r.id})",
+                        "requester": f"Agent ({r.role})",
+                        "role": r.role,
+                        "status": dec,
+                        "planSteps": plan_steps,
+                        "kind": "agent_plan",
+                    })
+
+    return items
 
 
 def approval_resolve(ctx, req):
     ctx.integrity.ensure_not_locked()
     b = req.json()
-    return ctx.approvals.resolve(req.params["id"], _str(b, "decision", 12), req.operator, b.get("note") if isinstance(b.get("note"), str) else None)
+    aid = req.params["id"]
+    decision = _str(b, "decision", 12)
+    note = b.get("note") if isinstance(b.get("note"), str) else None
+
+    # Check if this approval belongs to an agent run
+    clean_run_id = aid[4:] if aid.startswith("apr-") else aid
+    runner = getattr(ctx, "agentic_runner", getattr(ctx, "runner", None))
+    if runner and clean_run_id in runner._runs:
+        run = runner._runs[clean_run_id]
+        if run.status != "AWAITING_PLAN_APPROVAL":
+            raise not_found("This request has expired or was already handled")
+        if decision == "APPROVED":
+            runner.approve_plan(clean_run_id, approved=True, actor=req.operator)
+            return {
+                "id": aid,
+                "runId": clean_run_id,
+                "status": "APPROVED",
+                "resolvedBy": req.operator,
+                "resolvedAt": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
+                "note": note or "Approved plan and executed in cockpit",
+                "action": f"Execute Plan-then-Act plan for {run.role}: {run.goal}",
+            }
+        else:
+            runner.approve_plan(clean_run_id, approved=False, actor=req.operator)
+            run.stop_reason = note or "Denied by operator"
+            runner._save_run(run)
+            return {
+                "id": aid,
+                "runId": clean_run_id,
+                "status": "DENIED",
+                "resolvedBy": req.operator,
+                "resolvedAt": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
+                "note": note or "Denied by operator",
+                "action": f"Execute Plan-then-Act plan for {run.role}: {run.goal}",
+            }
+
+    # Resolve DB approvals
+    mgr = _active_approvals(ctx)
+    try:
+        return mgr.resolve(aid, decision, req.operator, note)
+    except Exception:
+        if hasattr(ctx, "integrity") and getattr(ctx.integrity, "demo_mode", False) and ctx.approvals:
+            return ctx.approvals.resolve(aid, decision, req.operator, note)
+        raise
 
 
 def approval_simulate(ctx, req):
     if not ctx.settings.demo_endpoints:
         raise not_found("Demo endpoints disabled")
-    target_approvals = ctx.approvals
-    if ctx.integrity.demo_mode:
-        from .approvals import Approvals, Grants
-        demo_grants = Grants(ctx.integrity.demo_db)
-        target_approvals = Approvals(ctx.integrity.demo_db, ctx.integrity.demo_audit, ctx.settings.approval_timeout_s, demo_grants)
+    target_approvals = _active_approvals(ctx)
     return target_approvals.create(
         action="Export audit ledger snapshot to external storage (demo request)",
         tool="Local Database",
         resource="/sandbox/db/ledger.sqlite",
         risk="CRITICAL",
         classification="RESTRICTED",
-        requester="Agent Reasoning Core (demo)"
+        requester="Agent Reasoning Core (demo)",
+        pending={"kind": "tool", "tool": "Local Database", "input": "export /sandbox/db/ledger.sqlite"}
     )
 
 
@@ -634,6 +770,12 @@ def agent_runs_resume(ctx, req):
 def agent_runs_stop(ctx, req):
     run_id = req.params.get("id", "")
     run = ctx.agentic_runner.stop_run(run_id, actor=req.operator)
+    return run.to_dict()
+
+
+def agent_runs_cancel(ctx, req):
+    run_id = req.params.get("id", "")
+    run = ctx.agentic_runner.cancel_run(run_id, actor=req.operator)
     return run.to_dict()
 
 

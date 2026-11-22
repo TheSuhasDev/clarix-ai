@@ -1,12 +1,12 @@
 /* ===== Clarix console design system ===== */
-.cx-page { position: relative; z-index: var(--z-main); padding: calc(var(--header-h) + 14px) clamp(1rem, 3.4vw, 3.5rem) 3rem; animation: cx-enter 0.45s cubic-bezier(.2,.75,.25,1) both; }
+.cx-page { position: relative; z-index: var(--z-main); padding: 0.8rem clamp(1rem, 3.4vw, 3.5rem) 3rem; animation: cx-enter 0.45s cubic-bezier(.2,.75,.25,1) both; }
 .cx-page__inner { width: 100%; max-width: 1200px; }
 @media (min-width: 1100px) { .cx-page__inner { width: min(100%, 78vw); } }
 @keyframes cx-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* page header */
 .cx-ph { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.1rem; flex-wrap: wrap; }
-.cx-ph h1 { margin: 0; display: flex; align-items: center; gap: 0.65rem; font: 800 clamp(1.05rem, 1.75vw, 1.5rem)/1.15 var(--font-mono); text-transform: uppercase; letter-spacing: 0.005em; color: #0b1230; }
+.cx-ph h1 { margin: 0; display: flex; align-items: center; gap: 0.65rem; font: 800 clamp(1.05rem, 1.75vw, 1.5rem)/1.15 var(--font-mono); text-transform: uppercase; letter-spacing: 0.005em; color: #0b1230; opacity: 1 !important; }
 .cx-ph h1 svg { flex: 0 0 auto; width: 1.35em; height: 1.35em; }
 .cx-ph p { margin: 0.35rem 0 0; max-width: 72ch; font: 400 0.78rem/1.5 var(--font-mono); color: var(--mute); }
 

@@ -169,7 +169,11 @@ class NetworkService {
     return { data: incidents, isLiveBackend: false };
   }
 
-  public async diagnose(query?: string, demoMode: DemoMode = 'healthy', deviceId?: string): Promise<DiagnoseResponse> {
+  public async diagnose(
+    query?: string,
+    demoMode: DemoMode = 'healthy',
+    deviceId?: string
+  ): Promise<{ data: DiagnoseResponse; isLiveBackend: boolean; error?: string }> {
     try {
       const res = await fetchWithTimeout(`${API_BASE}/api/network/diagnose`, {
         method: 'POST',
@@ -177,12 +181,28 @@ class NetworkService {
         body: JSON.stringify({ query: query || 'Analyze Network', demo_mode: demoMode, device_id: deviceId }),
       });
       if (res.ok) {
-        return await res.json();
+        const json = await res.json();
+        this.backendAvailable = true;
+        return { data: json, isLiveBackend: true };
       }
+      this.backendAvailable = false;
+      return {
+        data: await networkDiagnosticService.analyzeNetwork(demoMode),
+        isLiveBackend: false,
+        error: `Network service returned HTTP ${res.status}. Falling back to simulation.`,
+      };
     } catch {
-      // fallback
+      this.backendAvailable = false;
+      return {
+        data: await networkDiagnosticService.analyzeNetwork(demoMode),
+        isLiveBackend: false,
+        error: `Network service not reachable at ${API_BASE}. Start it with start-network.bat`,
+      };
     }
-    return networkDiagnosticService.analyzeNetwork(demoMode);
+  }
+
+  public getApiBase(): string {
+    return API_BASE;
   }
 
   public async remediate(

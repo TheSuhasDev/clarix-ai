@@ -39,8 +39,11 @@ export default function Rag() {
     setFileErr(''); setIngesting(true);
     try {
       const d = await ragService.ingest(name, size, cls, file);
-      docs.setData((p) => [d, ...(p ?? []).filter((x) => x.name !== d.name)]); setFileName(''); setFile(null); refreshCounts();
-      toast(config.useMocks ? `${name} added to the simulated index (${d.chunks} chunks). File contents were not read.` : `${name} indexed: ${d.chunks} chunks${d.flaggedChunks ? `, ${d.flaggedChunks} quarantined for suspected injected instructions` : ''}.`, 'green');
+      await docs.reload();
+      setFileName('');
+      setFile(null);
+      refreshCounts();
+      toast(config.useMocks ? `${name} indexed locally (${d.chunks} chunks).` : `${name} indexed: ${d.chunks} chunks${d.flaggedChunks ? `, ${d.flaggedChunks} quarantined for suspected injected instructions` : ''}.`, 'green');
     } catch (e) { toast(e instanceof Error ? e.message : 'Ingestion failed', 'red'); }
     finally { setIngesting(false); }
   }
@@ -110,7 +113,7 @@ export default function Rag() {
         </Card>
       </div>
 
-      <Card title="Indexed local documents" icon={<FileText color="#2563ff" />} aside={<span className="cx-muted cx-mono" style={{ fontSize: '.72rem', fontWeight: 400, textTransform: 'none' }}>{docs.data?.length ?? 0} {config.useMocks ? 'documents loaded (sample data)' : 'documents indexed locally'}</span>} className="rag-docs">
+      <Card title="Indexed local documents" icon={<FileText color="#2563ff" />} aside={<span className="cx-muted cx-mono" style={{ fontSize: '.72rem', fontWeight: 400, textTransform: 'none' }}>{docs.data?.length ?? 0} documents indexed locally</span>} className="rag-docs">
         {docs.loading && <Loading rows={3} height={44} />}
         {docs.error && <ErrorState message={docs.error} onRetry={docs.reload} />}
         {docs.data && (

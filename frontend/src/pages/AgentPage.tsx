@@ -121,9 +121,19 @@ function withCites(line: string, sources?: SourceRef[]) {
   return line.split(/(\[\d{1,2}\])/g).map((part, i) => {
     const m = /^\[(\d{1,2})\]$/.exec(part);
     if (!m) return part;
-    const src = sources?.find((x) => x.n === Number(m[1]));
+    const n = Number(m[1]);
+    const src = sources?.find((x) => x.n === n);
     return (
-      <span key={i} className="chat__cite" title={src ? `${src.doc}, ${src.locator}` : undefined}>
+      <span
+        key={i}
+        className="chat__cite"
+        title={src ? `${src.doc}, ${src.locator} (Click to open Evidence)` : undefined}
+        style={{ cursor: 'pointer' }}
+        onClick={() => {
+          const btn = document.querySelector(`button[data-source-chip="${n}"]`) as HTMLButtonElement | null;
+          if (btn) btn.click();
+        }}
+      >
         {part}
       </span>
     );
@@ -154,32 +164,249 @@ function Body({ text, sources }: { text: string; sources?: SourceRef[] }) {
   );
 }
 
-function SourcePanel({ meta }: { meta: NonNullable<ChatMessage['meta']> }) {
-  const src = meta.sources ?? [];
-  if (!src.length && !(meta.command && meta.reasons.length)) return null;
+function highlightPassageText(passage: string, answerText: string): React.ReactNode {
+  if (!passage) return 'Passage text not available.';
+  const sentences = answerText
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.replace(/\[\d+\]/g, '').trim())
+    .filter((s) => s.length > 15);
+
+  let foundPhrase = '';
+  for (const s of sentences) {
+    const words = s.split(/\s+/).filter((w) => w.length > 3);
+    for (let len = Math.min(8, words.length); len >= 3; len--) {
+      for (let start = 0; start <= words.length - len; start++) {
+        const phrase = words.slice(start, start + len).join(' ');
+        if (passage.toLowerCase().includes(phrase.toLowerCase())) {
+          if (phrase.length > foundPhrase.length) {
+            foundPhrase = phrase;
+          }
+        }
+      }
+    }
+  }
+
+  if (!foundPhrase) {
+    return passage;
+  }
+
+  const idx = passage.toLowerCase().indexOf(foundPhrase.toLowerCase());
+  if (idx === -1) return passage;
+
+  const before = passage.slice(0, idx);
+  const match = passage.slice(idx, idx + foundPhrase.length);
+  const after = passage.slice(idx + foundPhrase.length);
+
   return (
-    <div className="chat__src" aria-label="Sources">
-      {src.length > 0 && (
-        <div className="chat__srchead">
-          <FileText width={14} height={14} aria-hidden />SOURCES
-          {meta.attribution && meta.attribution.method !== 'simulated'
-            ? ` · ${meta.attribution.cited} of ${meta.attribution.sentences} sentence(s) cited · ${meta.attribution.weaklySupported} weakly supported`
-            : ''}
+    <>
+      {before}
+      <mark style={{ backgroundColor: '#fef08a', color: '#854d0e', fontWeight: 600, padding: '1px 3px', borderRadius: '3px' }}>
+        {match}
+      </mark>
+      {after}
+    </>
+  );
+}
+
+function AgentEvidence({ meta, answerText }: { meta: NonNullable<ChatMessage['meta']>; answerText: string }) {
+  const sources = meta.sources || [];
+  const attr = meta.attribution;
+  const hasSources = sources.length > 0;
+
+  const [selectedSource, setSelectedSource] = useState<number | null>(hasSources ? sources[0].n : null);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+
+  // Status computation: NEVER VERIFIED without sources!
+  let status: 'VERIFIED' | 'PARTIAL' | 'UNVERIFIED' = 'UNVERIFIED';
+  let reason = '';
+
+  if (!hasSources) {
+    status = 'UNVERIFIED';
+    reason = 'No supporting sources found';
+  } else if (attr?.status === 'VERIFIED') {
+    status = 'VERIFIED';
+    reason = attr.reason || '';
+  } else if (attr?.status === 'PARTIAL') {
+    status = 'PARTIAL';
+    reason = attr.reason || 'Some claims weakly supported';
+  } else if (attr?.status === 'UNVERIFIED') {
+    status = 'UNVERIFIED';
+    reason = attr.reason || 'Verification threshold not met';
+  } else {
+    status = (attr?.weak ?? 0) > 0 ? 'PARTIAL' : 'VERIFIED';
+    reason = attr?.reason || '';
+  }
+
+  const totalClaims = attr?.claims ?? attr?.sentences ?? (hasSources ? Math.max(1, sources.length) : 0);
+  const citedClaims = attr?.cited ?? (hasSources ? sources.filter((s) => s.cited).length || totalClaims : 0);
+  const weakClaims = attr?.weak ?? attr?.weaklySupported ?? 0;
+
+  const handleChipClick = (n: number) => {
+    setSelectedSource(n);
+    setEvidenceOpen(true);
+  };
+
+  return (
+    <div
+      className="chat__evidence-root"
+      style={{
+        marginTop: '10px',
+        marginBottom: '10px',
+        borderTop: '1px solid rgba(226, 232, 240, 0.8)',
+        paddingTop: '8px',
+        width: '100%',
+        maxHeight: 'none',
+        overflow: 'visible',
+      }}
+    >
+      {/* 1. Verification Badge & Stats (DIRECTLY UNDER answer text, ALWAYS visible, no expand needed) */}
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+        <Pill tone={status === 'VERIFIED' ? 'green' : status === 'PARTIAL' ? 'amber' : 'red'}>
+          {status === 'VERIFIED' ? '✓ VERIFIED' : status === 'PARTIAL' ? '⚠ PARTIAL' : '✕ UNVERIFIED'}
+        </Pill>
+
+        {hasSources ? (
+          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e293b' }}>
+            {totalClaims} claims · {citedClaims} cited · {weakClaims} weak
+          </span>
+        ) : (
+          <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#64748b', fontStyle: 'italic' }}>
+            No supporting sources found
+          </span>
+        )}
+
+        {reason && status !== 'VERIFIED' && (
+          <span style={{ fontSize: '0.74rem', color: status === 'PARTIAL' ? '#b45309' : '#dc2626', fontWeight: 500 }}>
+            ({reason})
+          </span>
+        )}
+      </div>
+
+      {/* 2. Source chips row (ALWAYS visible, nothing to expand or scroll to) */}
+      {hasSources ? (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+          {sources.map((s) => {
+            const isSelected = selectedSource === s.n && evidenceOpen;
+            return (
+              <button
+                key={s.n}
+                type="button"
+                data-source-chip={s.n}
+                onClick={() => handleChipClick(s.n)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: isSelected ? '1.5px solid #2563ff' : '1px solid #cbd5e1',
+                  background: isSelected ? '#eff6ff' : '#f8fafc',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontFamily: 'var(--font-sans)',
+                  color: '#1e293b',
+                  transition: 'all 0.15s ease',
+                  boxShadow: isSelected ? '0 1px 4px rgba(37,99,255,0.2)' : 'none',
+                }}
+                title={`Click to open source [${s.n}] passage in Evidence`}
+              >
+                <span style={{ color: '#2563ff', fontWeight: 800, fontFamily: 'monospace' }}>[{s.n}]</span>
+                <span style={{ fontWeight: 600 }}>{s.doc}</span>
+                <span style={{ color: '#64748b', fontSize: '0.7rem' }}>{s.locator}</span>
+                <ClassPill value={s.classification} />
+                <span style={{ fontSize: '0.68rem', color: '#64748b', fontFamily: 'monospace', fontWeight: 600 }}>
+                  score {s.score.toFixed(2)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ fontSize: '0.76rem', color: '#94a3b8', fontStyle: 'italic', marginBottom: '8px' }}>
+          No supporting sources found
         </div>
       )}
-      {src.map((s) => (
-        <details key={s.n} className={cx('chat__srcrow', s.cited && 'is-cited')}>
-          <summary>
-            <span className="chat__cite">[{s.n}]</span>
-            <b>{s.doc}</b>
-            <em>{s.locator}</em>
-            <ClassPill value={s.classification} />
-            {s.cited ? <span className="cx-pill cx-pill--green">cited</span> : <span className="cx-pill cx-pill--gray">retrieved</span>}
-            <span className="chat__score">score {s.score.toFixed(2)}</span>
+
+      {/* 3. "Evidence" expander with exact passage and cited sentence highlighted */}
+      {hasSources && (
+        <details
+          open={evidenceOpen}
+          onToggle={(e) => setEvidenceOpen((e.target as HTMLDetailsElement).open)}
+          style={{
+            marginTop: '6px',
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            maxHeight: 'none',
+            overflow: 'visible',
+          }}
+        >
+          <summary
+            style={{
+              cursor: 'pointer',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              color: '#2563ff',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              userSelect: 'none',
+            }}
+          >
+            <FileText width={13} height={13} />
+            <span>Evidence ({sources.length} passage{sources.length > 1 ? 's' : ''})</span>
+            {selectedSource && (
+              <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                Active: Source [{selectedSource}]
+              </span>
+            )}
           </summary>
-          <p>{s.snippet || 'Passage hidden: access to this document is not currently approved.'}</p>
+          <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: 'none', overflow: 'visible' }}>
+            {sources
+              .filter((s) => !selectedSource || s.n === selectedSource || sources.length === 1)
+              .map((s) => (
+                <div
+                  key={s.n}
+                  style={{
+                    padding: '10px 12px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    fontSize: '0.78rem',
+                    lineHeight: 1.55,
+                    maxHeight: 'none',
+                    overflow: 'visible',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                      marginBottom: '6px',
+                      borderBottom: '1px solid #f1f5f9',
+                      paddingBottom: '4px',
+                    }}
+                  >
+                    <span style={{ color: '#2563ff', fontWeight: 800 }}>[{s.n}]</span>
+                    <strong>{s.doc}</strong>
+                    <span style={{ color: '#64748b' }}>{s.locator}</span>
+                    <ClassPill value={s.classification} />
+                    <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#64748b', fontFamily: 'monospace' }}>
+                      Relevance {s.score.toFixed(2)}
+                    </span>
+                  </div>
+                  <div style={{ color: '#1e293b', whiteSpace: 'pre-wrap', maxHeight: 'none', overflow: 'visible' }}>
+                    {highlightPassageText(s.passage || s.snippet, answerText)}
+                  </div>
+                </div>
+              ))}
+          </div>
         </details>
-      ))}
+      )}
+
       {meta.reasons.length > 0 && <ul className="chat__notes">{meta.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
     </div>
   );
@@ -187,7 +414,16 @@ function SourcePanel({ meta }: { meta: NonNullable<ChatMessage['meta']> }) {
 
 export default function AgentPage() {
   const { refreshCounts, toast } = useConsole();
-  const [activeTab, setActiveTab] = useState<'cockpit' | 'chat'>('cockpit');
+  const [activeTab, setActiveTab] = useState<'cockpit' | 'chat'>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const sp = new URLSearchParams(window.location.search);
+        if (sp.get('tab') === 'cockpit') return 'cockpit';
+        if (sp.get('tab') === 'chat') return 'chat';
+      }
+    } catch {}
+    return 'chat';
+  });
 
   // --- Interactive Chat State ---
   const [msgs, setMsgs] = useState<ChatMessage[]>([INITIAL_SYSTEM_MSG]);
@@ -368,6 +604,18 @@ export default function AgentPage() {
       refreshCounts();
     } catch (e: any) {
       toast(e?.message || 'Kill-switch failed', 'red');
+    }
+  }
+
+  async function handleCancelRun() {
+    if (!activeRun) return;
+    try {
+      const updated = await agenticService.cancelRun(activeRun.id);
+      setActiveRun(updated);
+      toast(`Run ${activeRun.id} cancelled by operator.`, 'amber');
+      refreshCounts();
+    } catch (e: any) {
+      toast(e?.message || 'Cancel failed', 'red');
     }
   }
 
@@ -755,6 +1003,14 @@ export default function AgentPage() {
                   >
                     <X width={14} height={14} /> Reject Plan
                   </button>
+                  <button
+                    type="button"
+                    className="cx-btn cx-btn--ghost"
+                    disabled={runningAction}
+                    onClick={() => void handleCancelRun()}
+                  >
+                    <X width={14} height={14} /> Cancel
+                  </button>
                 </div>
               </div>
 
@@ -839,6 +1095,11 @@ export default function AgentPage() {
                       <Square width={13} height={13} fill="currentColor" /> STOP (KILL-SWITCH)
                     </button>
                   )}
+                  {['RUNNING', 'PLANNING', 'PAUSED', 'AWAITING_PLAN_APPROVAL'].includes(activeRun.status) && (
+                    <button type="button" className="cx-btn cx-btn--ghost cx-btn--sm" onClick={handleCancelRun}>
+                      <X width={13} height={13} /> Cancel
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -860,7 +1121,7 @@ export default function AgentPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem' }}>
                           <DecisionPill decision={st.decision as any} />
                           <RiskPill risk={st.risk as any} />
-                          <span className="cx-pill cx-pill--gray">+{st.durationMs}ms</span>
+                          <span className="cx-pill cx-pill--gray">+{st.durationMs || 1}ms</span>
                         </div>
                       </div>
 
@@ -898,11 +1159,24 @@ export default function AgentPage() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '.4rem' }}>
                     <b style={{ fontSize: '.84rem', color: '#0f172a' }}>Agent Execution Synthesis:</b>
                     {activeRun.verification ? (
-                      <span className={cx('cx-pill', activeRun.verification.passed ? 'cx-pill--green' : 'cx-pill--red')}>
-                        {activeRun.verification.passed ? 'EVIDENCE VERIFIED' : 'UNVERIFIED (UNTRUSTED)'}
+                      <span
+                        className={cx(
+                          'cx-pill',
+                          activeRun.verification.passed
+                            ? 'cx-pill--green'
+                            : activeRun.verification.status === 'NO_EVIDENCE'
+                            ? 'cx-pill--amber'
+                            : 'cx-pill--red'
+                        )}
+                      >
+                        {activeRun.verification.passed
+                          ? 'EVIDENCE VERIFIED'
+                          : activeRun.verification.status === 'NO_EVIDENCE'
+                          ? 'NO DOCUMENTS FOUND'
+                          : 'UNVERIFIED (UNTRUSTED)'}
                       </span>
                     ) : (
-                      <span className="cx-pill cx-pill--green">VERIFIED VIA RAG CITATIONS</span>
+                      <span className="cx-pill cx-pill--gray">NO CITATIONS</span>
                     )}
                   </div>
                   <pre style={{ margin: 0, font: '400 .8rem/1.5 var(--font-sans)', whiteSpace: 'pre-wrap', color: '#1e293b' }}>
@@ -1114,7 +1388,9 @@ export default function AgentPage() {
                     )}
                   >
                     <Body text={m.text} sources={m.meta?.sources} />
-                    {m.meta && <SourcePanel meta={m.meta} />}
+                    {m.role === 'agent' && m.meta && (
+                      <AgentEvidence meta={m.meta} answerText={m.text} />
+                    )}
 
                     {/* Truncation notice */}
                     {m.meta?.truncated && (

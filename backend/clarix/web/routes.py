@@ -51,6 +51,7 @@ ROUTES: list[Route] = [
     Route("POST", "/api/agent/runs/{id}/pause", s.agent_runs_pause, "Pause agent run", "agent"),
     Route("POST", "/api/agent/runs/{id}/resume", s.agent_runs_resume, "Resume paused agent run", "agent"),
     Route("POST", "/api/agent/runs/{id}/stop", s.agent_runs_stop, "Kill-switch stop an agent run", "agent"),
+    Route("POST", "/api/agent/runs/{id}/cancel", s.agent_runs_cancel, "Cancel an agent run", "agent"),
     Route("GET", "/api/agent/workflows", s.agent_workflows_list, "List built-in agentic workflows", "agent"),
     Route("POST", "/api/agent/workflows/{id}/run", s.agent_workflow_run, "Trigger a built-in workflow", "agent", rate="chat"),
     Route("GET", "/api/agent/memory", s.agent_memory_list, "List agent memory items", "agent"),

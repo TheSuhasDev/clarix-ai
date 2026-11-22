@@ -37,9 +37,25 @@ class TestNetworkMonitor(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         s = Settings.from_env()
+        # Ensure clean state before tests
+        for p in [s.data_dir / "lockdown.json", s.data_dir / "demo" / "lockdown.json"]:
+            if p.exists():
+                try:
+                    p.unlink()
+                except Exception:
+                    pass
         cls.ctx = Context(s, install_guard=False)
         cls.ctx.start()
         cls.netmon = cls.ctx.netmon
+
+    def setUp(self):
+        # Ensure lockdown file is clean for egress watch tests
+        for p in [self.ctx.settings.data_dir / "lockdown.json", self.ctx.settings.data_dir / "demo" / "lockdown.json"]:
+            if p.exists():
+                try:
+                    p.unlink()
+                except Exception:
+                    pass
 
     @classmethod
     def tearDownClass(cls):

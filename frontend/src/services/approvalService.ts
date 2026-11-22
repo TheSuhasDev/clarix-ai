@@ -13,8 +13,8 @@ export const approvalService = {
   async resolve(id: string, decision: 'APPROVED' | 'DENIED', note?: string): Promise<ApprovalRequest> {
     if (!config.useMocks) return request(`/api/approvals/${id}/resolve`, { method: 'POST', body: JSON.stringify({ decision, note }) });
     const a = db.approvals.find((x) => x.id === id);
-    if (!a || a.status !== 'PENDING') throw new Error('Request is no longer pending.');
-    a.status = decision; a.resolvedAt = stamp(); a.resolvedBy = 'operator_max'; a.note = note;
+    if (!a || a.status !== 'PENDING') throw new Error('This request has expired or was already handled');
+    a.status = decision; a.resolvedAt = stamp(); a.resolvedBy = 'operator_max'; a.note = note || (decision === 'DENIED' ? 'Denied by operator' : undefined);
     db.addAudit({ user: 'operator_max', action: `${decision === 'APPROVED' ? 'Approved' : 'Denied'} ${id}`, component: 'Human Approval', risk: a.risk, decision: decision === 'APPROVED' ? 'ALLOW' : 'BLOCK', classification: a.classification, payload: `approval:${id}:${decision}` });
     return mock(() => a, 250);
   },

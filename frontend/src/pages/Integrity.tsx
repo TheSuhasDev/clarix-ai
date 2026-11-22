@@ -231,7 +231,7 @@ export default function Integrity() {
           </div>
           <p className="cx-sub" style={{ margin: '.3rem 0 0', color: 'var(--mute, #475569)' }}>
             {overallStatus === 'TAMPERED'
-              ? `Cryptographic tampering detected. System locked under POL-006. Evidence: ${serverEvidence}`
+              ? `Cryptographic tampering detected. System locked under POL-006. Evidence: ${typeof serverEvidence === 'object' ? JSON.stringify(serverEvidence) : String(serverEvidence)}`
               : overallStatus === 'VERIFIED'
               ? 'Each event is signed with an isolated HMAC key and anchored to an external verifiable state. All defense layers operational.'
               : overallStatus === 'CHECKING'
@@ -451,7 +451,7 @@ export default function Integrity() {
                   fontSize: '0.78rem',
                 }}
               >
-                <strong>Detection Evidence:</strong> {serverEvidence}
+                <strong>Detection Evidence:</strong> {typeof serverEvidence === 'object' ? JSON.stringify(serverEvidence) : String(serverEvidence)}
               </div>
             )}
           </div>
@@ -584,7 +584,7 @@ export default function Integrity() {
                     )}
                   </div>
                   <p className="chain__act" style={{ color: 'var(--ink, #0f172a)' }}>
-                    <b>Action:</b> {ev?.action} • <b>Classification:</b> {ev?.classification} • <b>Payload:</b> <code>{l.payload}</code>
+                    <b>Action:</b> {ev?.action} • <b>Classification:</b> {ev?.classification} • <b>Payload:</b> <code>{typeof l.payload === 'object' ? JSON.stringify(l.payload) : String(l.payload ?? '')}</code>
                   </p>
                   {isTampered && (
                     <p className="cx-sub tone-red" style={{ margin: '.2rem 0', fontWeight: 600 }}>
