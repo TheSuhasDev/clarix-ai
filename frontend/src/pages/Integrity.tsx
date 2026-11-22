@@ -21,6 +21,13 @@ import type { AuditEvent } from '../types';
 import { cx } from '../utils/format';
 import { isCryptoAvailable, sha256Hex, verifyChain, type ChainLink, type VerifyResult } from '../utils/sha256';
 
+function isLayerOk(layer: any): boolean {
+  if (layer === undefined || layer === null) return true;
+  if (typeof layer === 'boolean') return layer;
+  if (typeof layer === 'object' && typeof layer.ok === 'boolean') return layer.ok;
+  return true;
+}
+
 export default function Integrity() {
   const { settings, toast } = useConsole();
   const cryptoOk = settings.webCrypto && isCryptoAvailable();
@@ -169,7 +176,7 @@ export default function Integrity() {
           </div>
           <p className="cx-sub" style={{ margin: '.3rem 0 0' }}>
             {isLocked
-              ? `Cryptographic tampering detected. System locked under POL-006. Reason: ${intStatus?.reason || comparison?.clarix.reason || 'Out-of-band tampering'}`
+              ? `Cryptographic tampering detected. System locked under POL-006. Reason: ${intStatus?.reason || comparison?.clarix?.reason || 'Out-of-band tampering'}`
               : `Each event is signed with an isolated HMAC key and anchored to an external verifiable state. All defense layers operational.`}
           </p>
         </div>
@@ -218,8 +225,8 @@ export default function Integrity() {
                   Legacy Plain SHA-256 Chain
                 </h3>
               </div>
-              <Pill tone={comparison?.legacy.status === 'VALID' ? 'green' : 'red'}>
-                {comparison?.legacy.status === 'VALID' ? '✓ VALID / CLEAN' : '✕ DETECTED'}
+              <Pill tone={comparison?.legacy?.status === 'VALID' ? 'green' : 'red'}>
+                {comparison?.legacy?.status === 'VALID' ? '✓ VALID / CLEAN' : '✕ DETECTED'}
               </Pill>
             </div>
 
@@ -249,7 +256,7 @@ export default function Integrity() {
             </div>
 
             <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
-              Status: <code style={{ color: '#38bdf8' }}>{comparison?.legacy.reason || 'Unbroken parent-child hashes'}</code>
+              Status: <code style={{ color: '#38bdf8' }}>{comparison?.legacy?.reason || comparison?.legacy?.message || 'Unbroken parent-child hashes'}</code>
             </div>
           </div>
 
@@ -281,9 +288,9 @@ export default function Integrity() {
               Even if hashes are recalculated, the attack is stopped cold.
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px', color: isLocked ? '#fee2e2' : '#f1f5f9' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem' }}>
-                {comparison?.clarix.layers.hmac_chain.ok !== false ? (
+                {isLayerOk(comparison?.clarix?.layers?.hmac_chain) ? (
                   <CheckCircle2 width={15} height={15} color="#10b981" />
                 ) : (
                   <XCircle width={15} height={15} color="#ef4444" />
@@ -294,7 +301,7 @@ export default function Integrity() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem' }}>
-                {comparison?.clarix.layers.external_anchor.ok !== false ? (
+                {isLayerOk(comparison?.clarix?.layers?.external_anchor) ? (
                   <CheckCircle2 width={15} height={15} color="#10b981" />
                 ) : (
                   <XCircle width={15} height={15} color="#ef4444" />
@@ -305,7 +312,7 @@ export default function Integrity() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem' }}>
-                {comparison?.clarix.layers.signed_security_state.ok !== false ? (
+                {isLayerOk(comparison?.clarix?.layers?.signed_state ?? comparison?.clarix?.layers?.signed_security_state) ? (
                   <CheckCircle2 width={15} height={15} color="#10b981" />
                 ) : (
                   <XCircle width={15} height={15} color="#ef4444" />
@@ -316,7 +323,7 @@ export default function Integrity() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem' }}>
-                {comparison?.clarix.layers.schema_triggers.ok !== false ? (
+                {isLayerOk(comparison?.clarix?.layers?.triggers ?? comparison?.clarix?.layers?.schema_triggers) ? (
                   <CheckCircle2 width={15} height={15} color="#10b981" />
                 ) : (
                   <XCircle width={15} height={15} color="#ef4444" />
@@ -338,7 +345,7 @@ export default function Integrity() {
                   fontSize: '0.78rem',
                 }}
               >
-                <strong>Detection Detail:</strong> {comparison?.clarix.reason || intStatus?.reason}
+                <strong>Detection Detail:</strong> {comparison?.clarix?.reason || intStatus?.reason}
               </div>
             )}
           </div>

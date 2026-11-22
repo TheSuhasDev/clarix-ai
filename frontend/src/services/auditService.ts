@@ -27,27 +27,41 @@ export interface IntegrityStatus {
 }
 
 export interface VerifierComparison {
-  status: 'CLEAN' | 'TAMPER_DETECTED';
+  status: 'CLEAN' | 'TAMPER_DETECTED' | string;
   detection_time_ms?: number;
   legacy: {
-    name: string;
-    algorithm: string;
-    status: 'VALID' | 'TAMPER_DETECTED';
-    reason: string;
-    vulnerable_to_rehash: boolean;
+    ok?: boolean;
+    name?: string;
+    algorithm?: string;
+    status: 'VALID' | 'TAMPER_DETECTED' | 'CORRUPTED' | string;
+    reason?: string;
+    message?: string;
+    note?: string;
+    count?: number;
+    head?: string;
+    vulnerable_to_rehash?: boolean;
   };
   clarix: {
-    name: string;
-    algorithm: string;
-    status: 'VALID' | 'TAMPER_DETECTED';
-    reason: string;
+    ok?: boolean;
+    name?: string;
+    algorithm?: string;
+    status: 'VALID' | 'TAMPER_DETECTED' | 'LOCKED' | 'VERIFIED' | 'TAMPERED' | string;
+    reason?: string;
     evidence?: string;
+    note?: string;
     layers: {
-      hmac_chain: { ok: boolean; desc: string };
-      external_anchor: { ok: boolean; desc: string };
-      signed_security_state: { ok: boolean; desc: string };
-      schema_triggers: { ok: boolean; desc: string };
+      triggers?: boolean | { ok: boolean; desc?: string };
+      schema_triggers?: boolean | { ok: boolean; desc?: string };
+      signed_state?: boolean | { ok: boolean; desc?: string };
+      signed_security_state?: boolean | { ok: boolean; desc?: string };
+      external_anchor?: boolean | { ok: boolean; desc?: string };
+      hmac_chain?: boolean | { ok: boolean; desc?: string };
     };
+  };
+  dbState?: {
+    count: number;
+    locked: boolean;
+    demoMode: boolean;
   };
 }
 
