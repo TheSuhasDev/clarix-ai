@@ -686,19 +686,35 @@ class IntegrityManager:
         clarix_reason = "; ".join(reasons) if reasons else "All 4 cryptographic barriers verified"
         clarix_evidence = info.get("evidence", "") or (reasons[0] if reasons else "No tampering detected")
 
+        # Determine legacy verification presentation:
+        # On healthy baseline/live keyed ledger: legacy cannot verify HMAC records
+        # After smart rehash attack: legacy is fooled (ok=True), Clarix detects HMAC/anchor violation
+        if clarix_ok and not locked:
+            legacy_status = "NOT_APPLICABLE"
+            legacy_message = "NOT APPLICABLE (legacy can't verify a keyed ledger)"
+        elif legacy.get("ok", False):
+            legacy_status = "VALID"
+            legacy_message = "CLEAN (fooled)"
+        else:
+            legacy_status = legacy.get("status", "CORRUPTED")
+            legacy_message = legacy.get("message", "Plain SHA-256 continuity mismatch")
+
+        clarix_status = "TAMPER_DETECTED" if (locked or not clarix_ok) else "VERIFIED"
+
         return {
             "status": "TAMPER_DETECTED" if (locked or not clarix_ok) else "CLEAN",
             "legacy": {
                 "ok": legacy["ok"],
-                "status": legacy["status"],
+                "status": legacy_status,
                 "count": legacy["count"],
                 "head": legacy["head"],
-                "message": legacy["message"],
+                "message": legacy_message,
+                "reason": legacy_message,
                 "note": "Legacy plain SHA-256 only checks local hash continuity. It has no access to audit.key and does not verify external anchor or signed state."
             },
             "clarix": {
                 "ok": clarix_ok,
-                "status": "LOCKED" if locked else ("VERIFIED" if clarix_ok else "TAMPERED"),
+                "status": clarix_status,
                 "reason": clarix_reason,
                 "evidence": clarix_evidence,
                 "layers": {

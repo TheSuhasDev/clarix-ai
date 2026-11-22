@@ -80,8 +80,19 @@ let mockLockedState = false;
 let mockLockReason = '';
 let mockLockEvidence = '';
 
+export interface ServerVerifyResult {
+  ok: boolean;
+  count: number;
+  head: string;
+  problems: Array<{ id: string; reason: string }>;
+  ms: number;
+  verifiedAt?: string;
+  ledger?: 'demo' | 'live';
+  dbPath?: string;
+}
+
 export const auditService = {
-  /** BACKEND: GET /api/audit  (server-side hash chain; the browser only displays/recomputes it) */
+  /** BACKEND: GET /api/audit  (server-side hash chain; the browser only displays it) */
   async list(): Promise<AuditEvent[]> {
     if (!config.useMocks) return request('/api/audit');
     const events: AuditEvent[] = await mock(() => db.auditEvents);
@@ -123,7 +134,7 @@ export const auditService = {
   },
 
   /** BACKEND: GET /api/audit/verify */
-  async verifyServer(): Promise<{ ok: boolean; count: number; head: string; problems: any[]; ms: number; ledger?: 'demo' | 'live'; dbPath?: string }> {
+  async verifyServer(): Promise<ServerVerifyResult> {
     if (!config.useMocks) return request('/api/audit/verify');
     return mock(() => ({
       ok: !mockLockedState,
@@ -131,6 +142,7 @@ export const auditService = {
       head: db.auditEvents[db.auditEvents.length - 1]?.hash || '0'.repeat(64),
       problems: mockLockedState ? [{ id: 'EVT-000005', reason: mockLockReason || 'Cryptographic integrity mismatch' }] : [],
       ms: 6,
+      verifiedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
       ledger: 'demo',
       dbPath: 'data/demo/clarix_demo.db',
     }));
